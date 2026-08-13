@@ -25,13 +25,14 @@ from .config import (
 from .crypto import AuthenticationError
 from .protocol import perform_client_handshake, perform_server_handshake
 from .session import InteractiveSession
+from .terminal_style import BOLD, CYAN, DIM, GREEN, MAGENTA, RED, WHITE, YELLOW, brand, paint, status
 from .tor import TorError, TorProcess, socks5_connect, validate_onion
 from .webgui import run_gui
 
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="onioncall", description="Sicheres Push-to-talk und Text über Tor")
-    result.add_argument("--version", action="version", version=f"OnionCall {__version__}")
+    result.add_argument("--version", action="version", version=f"BRZ – OnionCall {__version__}")
     commands = result.add_subparsers(dest="command")
 
     commands.add_parser("menu", help="Vollständige Terminal-Oberfläche öffnen")
@@ -77,7 +78,7 @@ def _audio(config) -> AudioBackend:
 
 def _run_listen(sock: socket.socket, psk: bytes, config) -> None:
     sock.listen(1)
-    print("Warte auf eine eingehende Verbindung …", flush=True)
+    print(paint("Warte auf eine eingehende Verbindung …", BOLD, YELLOW), flush=True)
     connection, _ = sock.accept()
     sock.close()
     channel = perform_server_handshake(connection, psk)
@@ -91,19 +92,19 @@ def _doctor() -> int:
     for command in ("tor", *missing_audio_commands()):
         found = shutil.which(command)
         if found:
-            print(f"[OK] {command}: {found}")
+            print(f"{status(True)} {command}: {paint(found, DIM, WHITE)}")
         else:
-            print(f"[FEHLT] {command}")
+            print(f"{status(False)} {command}")
             failures += 1
     home = app_home()
     try:
         ensure_private_dir(home)
         mode = os.stat(home).st_mode & 0o777
-        print(f"[OK] Datenverzeichnis: {home} ({mode:o})")
+        print(f"{status(True)} Datenverzeichnis: {paint(str(home), DIM, WHITE)} ({mode:o})")
         load_secret()
-        print("[OK] Verbindungsschlüssel vorhanden und Rechte sicher")
+        print(f"{status(True)} Verbindungsschlüssel vorhanden und Rechte sicher")
     except ConfigError as exc:
-        print(f"[FEHLER] {exc}")
+        print(paint(f"[FEHLER] {exc}", BOLD, RED))
         failures += 1
     return 0 if failures == 0 else 1
 
@@ -122,15 +123,15 @@ def _ensure_initialized() -> None:
         load_secret(home)
     except ConfigError:
         generate_secret(home)
-        print("Ein neuer Verbindungsschlüssel wurde sicher erzeugt.")
+        print(paint("Ein neuer Verbindungsschlüssel wurde sicher erzeugt.", GREEN))
 
 
 def _share_secret_guided() -> None:
     _ensure_initialized()
-    print("\nGEHEIMER VERBINDUNGSSCHLÜSSEL")
+    print("\n" + paint("GEHEIMER VERBINDUNGSSCHLÜSSEL", BOLD, YELLOW))
     print("Nur über einen bereits sicheren Kanal an die gewünschte Person senden.")
     print("Nicht veröffentlichen und nicht mit einer `.onion`-Adresse verwechseln.\n")
-    print(secret_token(load_secret()))
+    print(paint(secret_token(load_secret()), BOLD, CYAN))
 
 
 def _import_secret_guided() -> None:
@@ -141,15 +142,15 @@ def _import_secret_guided() -> None:
     if not token:
         raise ConfigError("Verbindungsschlüssel darf nicht leer sein")
     import_secret(token, replace=True)
-    print("Verbindungsschlüssel sicher gespeichert.")
+    print(paint("Verbindungsschlüssel sicher gespeichert.", GREEN))
 
 
 def _key_menu() -> None:
     while True:
-        print("\n--- Verbindungsschlüssel ---")
-        print("1  Meinen Schlüssel zum Teilen anzeigen")
-        print("2  Erhaltenen Schlüssel einfügen")
-        print("0  Zurück")
+        print("\n" + paint("── Verbindungsschlüssel ──", BOLD, MAGENTA))
+        _menu_item("1", "Meinen Schlüssel zum Teilen anzeigen")
+        _menu_item("2", "Erhaltenen Schlüssel einfügen")
+        _menu_item("0", "Zurück", dim=True)
         try:
             choice = input("Auswahl: ").strip()
         except EOFError:
@@ -187,29 +188,30 @@ def _terminal_status() -> None:
     except ConfigError:
         key_ok = False
     address = _stored_onion_address()
-    print(f"Tor: {'[OK]' if tor_ok else '[FEHLT]'}", end="  ")
-    print(f"Schlüssel: {'[OK]' if key_ok else '[FEHLT]'}", end="  ")
-    print(f"Audio: {'[OK]' if not audio_missing else '[FEHLT]'}")
-    print(f"Onion-Adresse: {address or 'wird beim ersten Empfangen erstellt'}")
+    print(f"{paint('Tor:', DIM, WHITE)} {status(tor_ok)}", end="  ")
+    print(f"{paint('Schlüssel:', DIM, WHITE)} {status(key_ok)}", end="  ")
+    print(f"{paint('Audio:', DIM, WHITE)} {status(not audio_missing)}")
+    shown_address = paint(address, CYAN) if address else paint("wird beim ersten Empfangen erstellt", DIM, WHITE)
+    print(f"{paint('Onion-Adresse:', DIM, WHITE)} {shown_address}")
 
 
 def _show_address() -> None:
     address = _stored_onion_address()
     if address:
-        print("\nDeine gespeicherte Onion-Adresse:")
-        print(address)
+        print("\n" + paint("Deine gespeicherte Onion-Adresse:", BOLD, MAGENTA))
+        print(paint(address, BOLD, CYAN))
         print("Maßgeblich ist immer die Adresse, die beim Empfangen angezeigt wird.")
     else:
-        print("\nNoch keine Onion-Adresse vorhanden. Wähle zuerst ‚Gespräch empfangen‘.")
+        print("\n" + paint("Noch keine Onion-Adresse vorhanden. Wähle zuerst ‚Gespräch empfangen‘.", YELLOW))
 
 
 def _audio_test() -> None:
     config = load_config()
-    print("\nAudiotest: drei Sekunden aufnehmen …")
+    print("\n" + paint("Audiotest: drei Sekunden aufnehmen …", YELLOW))
     payload = _audio(config).record_opus(3)
     print("Aufnahme wird wiedergegeben …")
     _audio(config).play_opus(payload)
-    print("Audiotest erfolgreich.")
+    print(paint("Audiotest erfolgreich.", BOLD, GREEN))
 
 
 def _number_setting(label: str, current: int, minimum: int, maximum: int) -> int:
@@ -223,14 +225,14 @@ def _number_setting(label: str, current: int, minimum: int, maximum: int) -> int
 
 def _settings_menu() -> None:
     config = load_config()
-    print("\n--- Einstellungen ---")
+    print("\n" + paint("── Einstellungen ──", BOLD, MAGENTA))
     print("Enter übernimmt jeweils den bisherigen Wert.")
     try:
         config.listen_port = _number_setting("Gesprächsport", config.listen_port, 1024, 65535)
         config.socks_port = _number_setting("Tor-SOCKS-Port", config.socks_port, 1024, 65535)
         config.max_audio_seconds = _number_setting("Maximale Audiosekunden", config.max_audio_seconds, 1, 300)
         save_config(config)
-        print("Einstellungen sicher gespeichert.")
+        print(paint("Einstellungen sicher gespeichert.", GREEN))
     except (EOFError, ConfigError) as exc:
         print(f"Fehler: {exc}", file=sys.stderr)
 
@@ -254,22 +256,28 @@ def _address_for_menu() -> str:
     return address
 
 
+def _menu_item(number: str, label: str, *, dim: bool = False) -> None:
+    number_text = paint(number.rjust(2), BOLD, MAGENTA)
+    label_text = paint(label, DIM, WHITE) if dim else paint(label, WHITE)
+    print(f"{number_text}  {label_text}")
+
+
 def _menu() -> int:
     while True:
-        print("\n========================================================")
-        print(f"                  OnionCall {__version__}")
-        print("        Sicherer Text und Sprache über Tor")
-        print("========================================================")
+        print("\n" + paint("═" * 60, MAGENTA))
+        print(" " * 17 + brand(__version__))
+        print(" " * 12 + paint("Sicherer Text und Sprache über Tor", DIM, WHITE))
+        print(paint("═" * 60, MAGENTA))
         _terminal_status()
-        print("--------------------------------------------------------")
-        print("1  Gespräch empfangen")
-        print("2  Person anrufen")
-        print("3  Meine Onion-Adresse anzeigen")
-        print("4  Verbindungsschlüssel verwalten")
-        print("5  Audio testen (3 Sekunden)")
-        print("6  Installation ausführlich prüfen")
-        print("7  Einstellungen")
-        print("0  Beenden")
+        print(paint("─" * 60, DIM, WHITE))
+        _menu_item("1", "Gespräch empfangen")
+        _menu_item("2", "Person anrufen")
+        _menu_item("3", "Meine Onion-Adresse anzeigen")
+        _menu_item("4", "Verbindungsschlüssel verwalten")
+        _menu_item("5", "Audio testen (3 Sekunden)")
+        _menu_item("6", "Installation ausführlich prüfen")
+        _menu_item("7", "Einstellungen")
+        _menu_item("0", "Beenden", dim=True)
         try:
             choice = input("Auswahl: ").strip()
         except EOFError:
@@ -308,7 +316,7 @@ def _menu() -> int:
             _settings_menu()
             _pause()
         elif choice == "0":
-            print("OnionCall beendet.")
+            print(paint("BRZ – OnionCall beendet.", DIM, WHITE))
             return 0
         else:
             print("Bitte eine Zahl von 0 bis 7 wählen.")
@@ -362,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
                 listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 listener.bind(("127.0.0.1", config.listen_port))
-                print(f"Deine Onion-Adresse: {address}")
+                print(f"{paint('Deine Onion-Adresse:', BOLD, MAGENTA)} {paint(address, BOLD, CYAN)}")
                 _run_listen(listener, psk, config)
             finally:
                 tor.stop()
@@ -397,8 +405,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         return 2
     except KeyboardInterrupt:
-        print("\nAbgebrochen.", file=sys.stderr)
+        print(paint("\nAbgebrochen.", YELLOW, stream=sys.stderr), file=sys.stderr)
         return 130
     except (ConfigError, TorError, AuthenticationError, OSError) as exc:
-        print(f"Fehler: {exc}", file=sys.stderr)
+        print(paint(f"Fehler: {exc}", BOLD, RED, stream=sys.stderr), file=sys.stderr)
         return 1

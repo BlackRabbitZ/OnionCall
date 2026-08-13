@@ -72,7 +72,7 @@ class SetupScriptTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "OnionCall-Terminal-Setup.py").read_text(encoding="utf-8")
         self.assertNotIn("http.server", source)
         self.assertNotIn("webbrowser", source)
-        self.assertEqual(terminal_setup.MIN_REPOSITORY_VERSION, (2, 3, 0))
+        self.assertEqual(terminal_setup.MIN_REPOSITORY_VERSION, (2, 4, 0))
 
 
 if __name__ == "__main__":

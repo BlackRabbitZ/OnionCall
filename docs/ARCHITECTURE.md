@@ -10,6 +10,7 @@ OnionCall besteht aus klar getrennten Bereichen:
 | `protocol.py` | begrenzte binäre Frames, ChaCha20-Poly1305 und Sequenzprüfung |
 | `audio.py` | plattformspezifische Aufnahme, Opus-Kodierung und Wiedergabe |
 | `session.py` | interaktive Befehle und sichere Terminalausgabe |
+| `terminal_style.py` | TTY-sichere Farben, `NO_COLOR` und Darstellung der Marke BRZ – OnionCall |
 | `gui_session.py` | threadsichere Brücke zwischen verschlüsseltem Kanal und GUI |
 | `webgui.py` | ausschließlich lokale Browser-GUI, Status und Aktionen |
 | `OnionCall-Setup.py` | eigenständige grafische Installation und Plattform-Starter |

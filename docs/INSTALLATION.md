@@ -109,11 +109,11 @@ cd OnionCall-main
 ls pyproject.toml
 ```
 
-Falls du stattdessen das Release-Archiv `OnionCall-v2.3.0.zip` verwendest:
+Falls du stattdessen das Release-Archiv `OnionCall-v2.4.0.zip` verwendest:
 
 ```bash
 cd ~/Downloads
-unzip OnionCall-v2.3.0.zip
+unzip OnionCall-v2.4.0.zip
 cd OnionCall
 ls pyproject.toml
 ```
@@ -326,6 +326,12 @@ OnionCall merkt sich die zuletzt angerufene Adresse. Eine `.onion`-Adresse wird 
 Die einmalige bewusste Übertragung von Schlüssel und Empfängeradresse bleibt erforderlich. Dadurch braucht OnionCall weder automatische Erkennung im lokalen Netzwerk noch einen zentralen Kontaktserver.
 
 Die vollständige nummerierte Terminal-Oberfläche bleibt mit `onioncall-terminal`, `onioncall terminal` oder `onioncall menu` verfügbar. Sie enthält zusätzlich Onion-Adresse, Audiotest und Einstellungen.
+
+Die Terminal-Oberfläche zeigt **BRZ – OnionCall** und aktiviert Farben nur in einem interaktiven Terminal. Für monochrome Ausgabe oder Bildschirmleser kannst du sie abschalten:
+
+```bash
+NO_COLOR=1 onioncall-terminal
+```
 
 ## Zwei Geräte Schritt für Schritt verbinden
 
@@ -599,6 +605,8 @@ Die detaillierte Meldung steht in:
 ```bash
 cat ~/.config/onioncall/tor/tor.log
 ```
+
+Ab Version 2.4 zeigt OnionCall die relevanten Tor-Warnungen normalerweise bereits direkt in der Fehlermeldung. Meldet OnionCall, dass der SOCKS-Port `19050` belegt ist, läuft wahrscheinlich noch eine andere OnionCall-/Tor-Instanz. Beende diese Instanz oder ändere in der Terminal-Oberfläche unter **7 Einstellungen** den Tor-SOCKS-Port.
 
 Teile Logs nur nach Prüfung; sie können Informationen über dein System oder deine Nutzung enthalten.
 

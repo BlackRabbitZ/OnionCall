@@ -1,11 +1,11 @@
-# OnionCall 2.3
+# BRZ – OnionCall 2.4
 
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Plattformen](https://img.shields.io/badge/Plattformen-Linux%20%7C%20macOS%20%7C%20Termux-2ea44f)
 ![Lizenz](https://img.shields.io/badge/Lizenz-Apache--2.0-blue)
 ![Status](https://img.shields.io/badge/Status-Alpha-orange)
 
-OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion-Services mit einem sicherheitsorientierten Protokoll.
+BRZ – OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion-Services mit einem sicherheitsorientierten Protokoll.
 
 > [!CAUTION]
 > OnionCall wurde noch nicht unabhängig auditiert. Verwende diese Alpha-Version nicht als alleinige Schutzmaßnahme in einer Hochrisikosituation.
@@ -384,6 +384,12 @@ q                             Sitzung beenden
 
 Es wird dabei weder eine Web-GUI noch ein Browser benötigt.
 
+Die Terminal-Ausgabe verwendet automatisch Farben: Magenta und Cyan für die Marke und Navigation, Grün für erfolgreiche Prüfungen, Gelb für laufende Aktionen und Rot für Fehler. Bei Umleitung in eine Datei oder CI-Ausgaben werden keine Farbcodes geschrieben. Farben lassen sich ausdrücklich abschalten:
+
+```bash
+NO_COLOR=1 onioncall-terminal
+```
+
 ## Zwei Geräte Schritt für Schritt einrichten
 
 Für ein Gespräch brauchst du zwei Geräte mit installiertem OnionCall. Im folgenden Beispiel ist **Gerät A der Empfänger** und **Gerät B der Anrufer**.
@@ -649,7 +655,7 @@ Beiträge sind willkommen. Lies vorher [CONTRIBUTING.md](CONTRIBUTING.md) und me
 
 ## Projektstatus
 
-Version 2.3.0 ist ein gehärtetes, getestetes MVP mit gleichwertiger Terminal- und lokaler Browser-Oberfläche. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
+Version 2.4.0 ist ein gehärtetes, getestetes MVP mit farbiger Terminal- und lokaler Browser-Oberfläche. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
 
 ## Urheber und Lizenz
 

@@ -40,6 +40,7 @@ class WebGuiTests(unittest.TestCase):
         self.assertNotIn("http://", HTML)
         self.assertNotIn("https://", HTML)
         self.assertNotIn("AES-256-CBC", HTML)
+        self.assertIn("BRZ – OnionCall", HTML)
 
     def test_post_requires_random_session_token(self) -> None:
         status, body = self.request("/api/disconnect")

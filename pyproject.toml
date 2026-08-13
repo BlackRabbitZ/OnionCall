@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "onioncall"
-version = "2.3.0"
-description = "Authenticated push-to-talk voice and text over Tor onion services"
+version = "2.4.0"
+description = "BRZ - OnionCall: authenticated push-to-talk voice and text over Tor onion services"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"

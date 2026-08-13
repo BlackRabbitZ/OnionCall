@@ -18,11 +18,45 @@ from pathlib import Path
 
 REPOSITORY = "https://github.com/BlackRabbitZ/OnionCall.git"
 MIN_PYTHON = (3, 10)
-MIN_REPOSITORY_VERSION = (2, 3, 0)
+MIN_REPOSITORY_VERSION = (2, 4, 0)
+
+RESET = "\x1b[0m"
+BOLD = "1"
+DIM = "2"
+RED = "31"
+GREEN = "32"
+YELLOW = "33"
+MAGENTA = "35"
+CYAN = "36"
+WHITE = "37"
 
 
 class InstallerError(RuntimeError):
     pass
+
+
+def colors_enabled(stream=None) -> bool:
+    stream = stream or sys.stdout
+    return "NO_COLOR" not in os.environ and os.environ.get("TERM") != "dumb" and stream.isatty()
+
+
+def paint(text: str, *codes: str, stream=None) -> str:
+    if not codes or not colors_enabled(stream):
+        return text
+    return f"\x1b[{';'.join(codes)}m{text}{RESET}"
+
+
+def brand(version: str | None = None) -> str:
+    result = f"{paint('BRZ', BOLD, MAGENTA)} {paint('–', DIM, WHITE)} {paint('OnionCall', BOLD, CYAN)}"
+    if version:
+        result += " " + paint(version, DIM, WHITE)
+    return result
+
+
+def menu_item(number: str, label: str, *, dim: bool = False) -> None:
+    number_text = paint(number.rjust(2), BOLD, MAGENTA)
+    label_text = paint(label, DIM, WHITE) if dim else paint(label, WHITE)
+    print(f"{number_text}  {label_text}")
 
 
 def is_termux() -> bool:
@@ -125,21 +159,22 @@ def elevated(command: list[str]) -> list[str]:
 
 def run(command: list[str], *, cwd: Path | None = None, administrator: bool = False) -> None:
     actual = elevated(command) if administrator else command
-    print("\n$ " + shlex.join(command), flush=True)
+    print("\n" + paint("$", BOLD, CYAN) + " " + paint(shlex.join(command), DIM, WHITE), flush=True)
     process = subprocess.Popen(actual, cwd=cwd)
     if process.wait() != 0:
         raise InstallerError(f"Befehl fehlgeschlagen: {shlex.join(command)}")
 
 
 def step(number: int, total: int, message: str) -> None:
-    print(f"\n[{number}/{total}] {message}")
-    print("-" * 60)
+    marker = paint(f"[{number}/{total}]", BOLD, MAGENTA)
+    print(f"\n{marker} {paint(message, BOLD, WHITE)}")
+    print(paint("─" * 60, DIM, WHITE))
 
 
 def install_system_packages() -> None:
     missing = [command for command in required_commands() if shutil.which(command) is None]
     if not missing:
-        print("[OK] Tor, Git und Audio-Werkzeuge sind bereits installiert.")
+        print(paint("[OK] Tor, Git und Audio-Werkzeuge sind bereits installiert.", GREEN))
         return
     manager = package_manager()
     if manager is None and platform.system() == "Darwin":
@@ -183,7 +218,7 @@ def clone_or_update(root: Path) -> Path:
     if not (source / "pyproject.toml").is_file() or not (source / "onioncall" / "cli.py").is_file():
         raise InstallerError("Das geladene Repository ist kein vollständiges OnionCall-Projekt")
     if repository_version(source) < MIN_REPOSITORY_VERSION:
-        raise InstallerError("Das GitHub-Repository ist älter als OnionCall 2.3.0 und muss aktualisiert werden")
+        raise InstallerError("Das GitHub-Repository ist älter als BRZ – OnionCall 2.4.0 und muss aktualisiert werden")
     return source
 
 
@@ -220,7 +255,7 @@ def create_launchers(source: Path, venv: Path) -> None:
     shell_text = f'#!/bin/sh\ncd {shlex.quote(str(source))}\nexec {shlex.quote(str(executable))} terminal "$@"\n'
     launcher = Path.home() / ".local" / "bin" / "onioncall-terminal"
     private_write(launcher, shell_text, executable=True)
-    print(f"[OK] Terminal-Starter: {launcher}")
+    print(paint(f"[OK] Terminal-Starter: {launcher}", GREEN))
     if is_termux():
         shortcut_dir = Path.home() / ".shortcuts"
         if shortcut_dir.exists():
@@ -228,17 +263,17 @@ def create_launchers(source: Path, venv: Path) -> None:
     elif platform.system() == "Darwin":
         command = Path.home() / "Applications" / "OnionCall-Terminal.command"
         private_write(command, shell_text, executable=True)
-        print(f"[OK] macOS-Starter: {command}")
+        print(paint(f"[OK] macOS-Starter: {command}", GREEN))
     else:
         desktop = Path.home() / ".local" / "share" / "applications" / "onioncall-terminal.desktop"
         private_write(
             desktop,
-            "[Desktop Entry]\nType=Application\nName=OnionCall Terminal\n"
+            "[Desktop Entry]\nType=Application\nName=BRZ - OnionCall Terminal\n"
             "Comment=Sicherer Text und Sprache über Tor\n"
             f"Exec={launcher}\nTerminal=true\nCategories=Network;Chat;Security;\n",
         )
         desktop.chmod(0o644)
-        print(f"[OK] Anwendungsstarter: {desktop}")
+        print(paint(f"[OK] Anwendungsstarter: {desktop}", GREEN))
 
 
 def verify(venv: Path) -> None:
@@ -253,8 +288,8 @@ def install() -> None:
     if sys.version_info < MIN_PYTHON:
         raise InstallerError("Python 3.10 oder neuer wird benötigt")
     root = install_root()
-    print(f"System: {platform_label()}")
-    print(f"Installationsziel: {root}")
+    print(f"{paint('System:', DIM, WHITE)} {paint(platform_label(), CYAN)}")
+    print(f"{paint('Installationsziel:', DIM, WHITE)} {root}")
     step(1, 6, "Systemprogramme prüfen und installieren")
     install_system_packages()
     step(2, 6, "OnionCall-Repository laden oder aktualisieren")
@@ -267,9 +302,9 @@ def install() -> None:
     create_launchers(source, venv)
     step(6, 6, "Installation prüfen")
     verify(venv)
-    print("\n============================================================")
-    print("DONE – OnionCall Terminal wurde vollständig installiert")
-    print("============================================================")
+    print("\n" + paint("═" * 60, MAGENTA))
+    print(paint("DONE", BOLD, GREEN) + " – BRZ – OnionCall Terminal wurde vollständig installiert")
+    print(paint("═" * 60, MAGENTA))
 
 
 def launch() -> None:
@@ -281,14 +316,15 @@ def launch() -> None:
 
 def menu() -> int:
     while True:
-        print("\n============================================================")
-        print("                  OnionCall Terminal Setup")
-        print("============================================================")
-        print(f"System: {platform_label()}")
-        print("1  OnionCall vollständig installieren oder aktualisieren")
-        print("2  Installiertes OnionCall Terminal starten")
-        print("3  Installationspfad anzeigen")
-        print("0  Beenden")
+        print("\n" + paint("═" * 60, MAGENTA))
+        print(" " * 14 + brand("Terminal Setup"))
+        print(paint("═" * 60, MAGENTA))
+        print(f"{paint('System:', DIM, WHITE)} {paint(platform_label(), CYAN)}")
+        print(paint("─" * 60, DIM, WHITE))
+        menu_item("1", "BRZ – OnionCall vollständig installieren oder aktualisieren")
+        menu_item("2", "Installiertes BRZ – OnionCall Terminal starten")
+        menu_item("3", "Installationspfad anzeigen")
+        menu_item("0", "Beenden", dim=True)
         try:
             choice = input("Auswahl: ").strip()
         except EOFError:
@@ -304,12 +340,12 @@ def menu() -> int:
                 print(f"Quellcode: {install_root() / 'source'}")
                 print(f"Python-Umgebung: {install_root() / 'venv'}")
             elif choice == "0":
-                print("Setup beendet.")
+                print(paint("BRZ – OnionCall Setup beendet.", DIM, WHITE))
                 return 0
             else:
                 print("Bitte 0, 1, 2 oder 3 wählen.")
         except (InstallerError, OSError, subprocess.SubprocessError) as exc:
-            print(f"\nFEHLER: {exc}", file=sys.stderr)
+            print(paint(f"\nFEHLER: {exc}", BOLD, RED, stream=sys.stderr), file=sys.stderr)
         if choice != "0":
             try:
                 input("\nEnter drücken, um zum Setup-Menü zurückzukehren …")

@@ -50,7 +50,7 @@ class GuiController:
         self.worker: threading.Thread | None = None
         self.stop_requested = threading.Event()
         self.audio_busy = threading.Event()
-        self._emit("system", "OnionCall GUI ist bereit.")
+        self._emit("system", "BRZ – OnionCall GUI ist bereit.")
 
     @staticmethod
     def _audio(config=None) -> AudioBackend:
@@ -329,7 +329,7 @@ HTML = r"""<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>OnionCall</title>
+  <title>BRZ – OnionCall</title>
   <style nonce="__NONCE__">
     :root{--bg:#090b10;--panel:#11151d;--line:#293141;--text:#eef2f7;--muted:#8e9bad;--purple:#b896ff;--cyan:#66e3d2;--green:#76e39a;--red:#ff7b84;--amber:#ffc66d}
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#1b1830 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,sans-serif;min-height:100vh}
@@ -343,7 +343,7 @@ HTML = r"""<!doctype html>
 </head>
 <body>
 <main class="app">
-  <header class="top"><div class="logo">O</div><div class="title"><h1>OnionCall</h1><p>Sicherer Text und Sprache über Tor</p></div><div class="version" id="version"></div></header>
+  <header class="top"><div class="logo">O</div><div class="title"><h1>BRZ – OnionCall</h1><p>Sicherer Text und Sprache über Tor</p></div><div class="version" id="version"></div></header>
   <section class="statusbar">
     <div class="pill"><span class="dot" id="torDot"></span><div><b>Tor</b><small id="torText">Prüfen …</small></div></div>
     <div class="pill"><span class="dot" id="keyDot"></span><div><b>Schlüssel</b><small id="keyText">Prüfen …</small></div></div>
@@ -559,7 +559,7 @@ def run_gui(*, port: int = 0, open_browser: bool = True) -> int:
     controller = GuiController()
     server = GuiHttpServer(("127.0.0.1", port), controller)
     url = server.origin
-    print(f"OnionCall GUI läuft lokal unter {url}")
+    print(f"BRZ – OnionCall GUI läuft lokal unter {url}")
     print("Mit Strg+C beenden. Nur dieses Gerät kann auf die Oberfläche zugreifen.")
     if open_browser:
         threading.Timer(0.4, _open_browser, args=(url,)).start()

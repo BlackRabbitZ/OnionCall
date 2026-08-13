@@ -4,7 +4,8 @@
 
 | Version | Sicherheitsupdates |
 |---|---|
-| 2.3.x | Ja |
+| 2.4.x | Ja |
+| 2.3.x | Nur kritische Fehler; Aktualisierung empfohlen |
 | 2.2.x | Nur kritische Fehler; Aktualisierung empfohlen |
 | 2.0.x–2.1.x | Nur kritische Fehler; Aktualisierung empfohlen |
 | älter als 2.0 | Nein; anderes und inkompatibles Protokoll |

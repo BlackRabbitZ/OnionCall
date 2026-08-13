@@ -67,6 +67,7 @@ class TorProcess:
         binary = shutil.which(self.config.tor_binary)
         if not binary:
             raise TorError("Tor wurde nicht gefunden; `onioncall doctor` ausführen")
+        self._ensure_socks_port_available()
         self._write_torrc()
         # Die Bereitschaft darf nur aus dem aktuellen Start stammen, nicht aus
         # einer alten "Bootstrapped 100%"-Zeile einer früheren Sitzung.
@@ -87,7 +88,7 @@ class TorProcess:
             if self._stop_requested:
                 raise TorError("Tor-Start wurde abgebrochen")
             if process.poll() is not None:
-                raise TorError(f"Tor wurde unerwartet beendet; Logdatei: {self.log_path}")
+                raise TorError(self._unexpected_exit_message())
             if hostname.exists() and self._socks_ready() and self._bootstrap_complete():
                 address = hostname.read_text(encoding="ascii").strip()
                 return validate_onion(address)
@@ -107,6 +108,33 @@ class TorProcess:
                 return True
         except OSError:
             return False
+
+    def _ensure_socks_port_available(self) -> None:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            probe.bind(("127.0.0.1", self.config.socks_port))
+        except OSError as exc:
+            raise TorError(
+                f"Tor-SOCKS-Port {self.config.socks_port} ist bereits belegt. "
+                "Beende eine andere OnionCall-/Tor-Instanz oder ändere den SOCKS-Port unter Einstellungen."
+            ) from exc
+        finally:
+            probe.close()
+
+    def _unexpected_exit_message(self) -> str:
+        try:
+            lines = self.log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            lines = []
+        markers = ("[warn]", "[err]", "failed", "error", "problem", "in use", "permission")
+        relevant = [line.strip() for line in lines if any(marker in line.lower() for marker in markers)]
+        detail = " | ".join(relevant[-3:])
+        detail = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", detail)[:700]
+        message = "Tor wurde unerwartet beendet"
+        if detail:
+            message += f". Ursache laut Tor: {detail}"
+        return f"{message}; Logdatei: {self.log_path}"
 
     def stop(self) -> None:
         self._stop_requested = True

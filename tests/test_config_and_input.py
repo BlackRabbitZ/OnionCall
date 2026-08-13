@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import socket
 import stat
 import tempfile
 import unittest
@@ -9,6 +10,7 @@ from unittest import mock
 
 from onioncall.cli import _address_for_menu, main
 from onioncall.config import (
+    Config,
     ConfigError,
     generate_secret,
     load_config,
@@ -18,7 +20,7 @@ from onioncall.config import (
     secret_token,
 )
 from onioncall.session import safe_display
-from onioncall.tor import TorError, validate_onion
+from onioncall.tor import TorError, TorProcess, validate_onion
 
 
 class ConfigAndInputTests(unittest.TestCase):
@@ -71,6 +73,18 @@ class ConfigAndInputTests(unittest.TestCase):
         with mock.patch("builtins.input", return_value="0"):
             self.assertEqual(main(["terminal"]), 0)
 
+    def test_unexpected_tor_exit_includes_relevant_log_message(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            process = TorProcess(Config(), Path(directory))
+            process.tor_dir.mkdir(parents=True)
+            process.log_path.write_text(
+                "[notice] Starting\n[warn] Failed to bind one of the listener ports.\n",
+                encoding="utf-8",
+            )
+            message = process._unexpected_exit_message()
+            self.assertIn("Failed to bind", message)
+            self.assertIn(str(process.log_path), message)
+
     def test_no_subcommand_opens_gui(self) -> None:
         with mock.patch("onioncall.cli.run_gui", return_value=0) as gui:
             self.assertEqual(main([]), 0)
@@ -103,6 +117,14 @@ class ConfigAndInputTests(unittest.TestCase):
         for invalid in ("example.com", "a.onion", "$(touch /tmp/bad).onion"):
             with self.assertRaises(TorError):
                 validate_onion(invalid)
+
+    def test_occupied_tor_socks_port_has_clear_error(self) -> None:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as occupied, tempfile.TemporaryDirectory() as directory:
+            occupied.bind(("127.0.0.1", 0))
+            port = occupied.getsockname()[1]
+            process = TorProcess(Config(socks_port=port), Path(directory))
+            with self.assertRaisesRegex(TorError, "bereits belegt"):
+                process._ensure_socks_port_available()
 
 
 if __name__ == "__main__":

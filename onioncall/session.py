@@ -5,10 +5,12 @@ import threading
 from contextlib import suppress
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.patch_stdout import patch_stdout
 
 from .audio import AudioBackend, AudioError
 from .protocol import MessageType, ProtocolError, SecureChannel
+from .terminal_style import BOLD, CYAN, GREEN, MAGENTA, RED, WHITE, YELLOW, colors_enabled, paint
 
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
@@ -33,7 +35,7 @@ class InteractiveSession:
         self.receiver = threading.Thread(target=self._receive_loop, name="onioncall-receiver", daemon=True)
 
     def run(self) -> None:
-        print("Sichere Sitzung hergestellt. " + HELP, flush=True)
+        print(paint("Sichere Sitzung hergestellt.", BOLD, GREEN) + " " + paint(HELP, WHITE), flush=True)
         try:
             # Hintergrundausgaben werden oberhalb der aktiven Eingabezeile dargestellt.
             # prompt_toolkit zeichnet anschließend den Prompt und bereits getippten Text neu.
@@ -41,7 +43,8 @@ class InteractiveSession:
                 self.receiver.start()
                 while not self.finished.is_set():
                     try:
-                        line = self.prompt_session.prompt("Du > ")
+                        prompt = paint("Du > ", BOLD, CYAN)
+                        line = self.prompt_session.prompt(ANSI(prompt) if colors_enabled() else prompt)
                     except EOFError:
                         line = "/quit"
                     if not line.strip():
@@ -92,9 +95,9 @@ class InteractiveSession:
             return
         try:
             self.channel.send(MessageType.TEXT, payload)
-            print("[Du] " + safe_display(text), flush=True)
+            print(paint("[Du]", BOLD, CYAN) + " " + safe_display(text), flush=True)
         except (OSError, ProtocolError) as exc:
-            print(f"Senden fehlgeschlagen: {exc}")
+            print(paint(f"Senden fehlgeschlagen: {exc}", RED))
             self.finished.set()
 
     def _send_audio(self, line: str) -> None:
@@ -104,12 +107,13 @@ class InteractiveSession:
             return
         seconds = int(parts[1])
         try:
-            print(f"Aufnahme läuft für {seconds} Sekunden …", flush=True)
+            print(paint(f"Aufnahme läuft für {seconds} Sekunden …", YELLOW), flush=True)
             payload = self.audio.record_opus(seconds)
             self.channel.send(MessageType.AUDIO_OPUS, payload)
-            print(f"[Du · Audio] Sprachnachricht gesendet ({len(payload)} Bytes).", flush=True)
+            label = paint("[Du · Audio]", BOLD, YELLOW)
+            print(f"{label} Sprachnachricht gesendet ({len(payload)} Bytes).", flush=True)
         except (AudioError, OSError, ProtocolError) as exc:
-            print(f"Audio konnte nicht gesendet werden: {exc}")
+            print(paint(f"Audio konnte nicht gesendet werden: {exc}", RED))
 
     def _receive_loop(self) -> None:
         try:
@@ -117,24 +121,25 @@ class InteractiveSession:
                 message = self.channel.receive()
                 if message.kind == MessageType.TEXT:
                     text = message.payload.decode("utf-8", errors="replace")
-                    print("[Gegenstelle] " + safe_display(text), flush=True)
+                    print(paint("[Gegenstelle]", BOLD, MAGENTA) + " " + safe_display(text), flush=True)
                 elif message.kind == MessageType.AUDIO_OPUS:
-                    print(f"[Gegenstelle · Audio] {len(message.payload)} Bytes – Wiedergabe …", flush=True)
+                    label = paint("[Gegenstelle · Audio]", BOLD, YELLOW)
+                    print(f"{label} {len(message.payload)} Bytes – Wiedergabe …", flush=True)
                     try:
                         self.audio.play_opus(message.payload)
                     except AudioError as exc:
-                        print(f"Wiedergabe fehlgeschlagen: {exc}", flush=True)
+                        print(paint(f"Wiedergabe fehlgeschlagen: {exc}", RED), flush=True)
                 elif message.kind == MessageType.CLOSE:
-                    print("Die Gegenstelle hat die Sitzung beendet.", flush=True)
+                    print(paint("Die Gegenstelle hat die Sitzung beendet.", YELLOW), flush=True)
                     self.finished.set()
                     self._stop_prompt()
                     return
         except EOFError:
             if not self.finished.is_set():
-                print("Verbindung geschlossen.", flush=True)
+                print(paint("Verbindung geschlossen.", YELLOW), flush=True)
         except (OSError, ProtocolError) as exc:
             if not self.finished.is_set():
-                print(f"Sitzung aus Sicherheitsgründen beendet: {exc}", flush=True)
+                print(paint(f"Sitzung aus Sicherheitsgründen beendet: {exc}", RED), flush=True)
         finally:
             self.finished.set()
             self._stop_prompt()

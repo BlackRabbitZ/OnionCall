@@ -2,6 +2,20 @@
 
 Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [2.4.0] – 2026-08-13
+
+### Hinzugefügt
+
+- farbige Terminal-Oberfläche mit Magenta/Cyan-Marke, grünen Erfolgen, gelben Hinweisen und roten Fehlern
+- sichtbarer Tool-Name `BRZ – OnionCall` in Terminal-App, beiden Installern, Web-GUI und Linux-Anwendungsstartern
+- automatische Farberkennung: keine ANSI-Codes in Logs, Weiterleitungen, ungeeigneten Terminals oder bei gesetztem `NO_COLOR`
+- farblich getrennte Chat-Kennzeichnungen für eigene Nachrichten, Gegenstelle und Audio
+
+### Behoben
+
+- ein bereits belegter Tor-SOCKS-Port wird vor dem Start erkannt und mit konkreter Lösung erklärt
+- bei einem unerwarteten Tor-Ende werden relevante Warn- und Fehlerzeilen direkt im Terminal angezeigt
+
 ## [2.3.0] – 2026-08-13
 
 ### Hinzugefügt
