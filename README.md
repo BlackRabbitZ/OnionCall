@@ -27,8 +27,15 @@ OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion
   - [Android und Termux installieren](#onioncall-unter-android-und-termux-installieren)
   - [Nach einem Terminalneustart](#nach-dem-nächsten-terminalstart)
   - [Hilfe bei fehlendem Tor](#wenn-tor-fehlt)
-- [Verbindungsschlüssel sicher austauschen](#verbindungsschlüssel-sicher-austauschen)
-- [Gespräch starten und verwenden](#gespräch-starten-und-verwenden)
+- [Zwei Geräte Schritt für Schritt einrichten](#zwei-geräte-schritt-für-schritt-einrichten)
+  - [Rollen und Adressen verstehen](#rollen-und-adressen-verstehen)
+  - [Installation auf beiden Geräten prüfen](#schritt-1-installation-auf-beiden-geräten-prüfen)
+  - [Gemeinsamen Schlüssel einrichten](#schritt-2-gemeinsamen-verbindungsschlüssel-einrichten)
+  - [Empfänger starten](#schritt-3-empfänger-starten)
+  - [Empfängeradresse übertragen](#schritt-4-empfängeradresse-übertragen)
+  - [Verbindung aufbauen](#schritt-5-vom-anrufer-verbindung-aufbauen)
+  - [Nachrichten und Sprache verwenden](#schritt-6-nachrichten-und-sprache-verwenden)
+  - [Nächster Anruf und Rollenwechsel](#nächster-anruf-und-rollenwechsel)
 - [Konfiguration und Dateien](#konfiguration-und-dateien)
 - [Tests und Entwicklung](#tests-und-entwicklung)
 - [Bekannte Grenzen](#bekannte-grenzen)
@@ -197,9 +204,40 @@ onioncall doctor
 
 Wenn `doctor` bei `tor` `[FEHLT]` anzeigt, wurde Tor nicht installiert oder ist nicht über den Suchpfad erreichbar. Installiere das Paket `tor` mit dem oben gezeigten Befehl für dein System und führe `onioncall doctor` erneut aus. Die ausführliche [Installationsanleitung](docs/INSTALLATION.md) beschreibt zusätzlich ZIP-Download, Aktualisierung, Deinstallation und weitere Fehlerfälle.
 
-## Verbindungsschlüssel sicher austauschen
+## Zwei Geräte Schritt für Schritt einrichten
 
-Person A richtet OnionCall ein:
+Für ein Gespräch brauchst du zwei Geräte mit installiertem OnionCall. Im folgenden Beispiel ist **Gerät A der Empfänger** und **Gerät B der Anrufer**.
+
+### Rollen und Adressen verstehen
+
+| Gerät | Rolle in diesem Beispiel | Befehl | Verwendete Onion-Adresse |
+| --- | --- | --- | --- |
+| Gerät A | Empfänger | `onioncall listen` | zeigt seine eigene Empfängeradresse an |
+| Gerät B | Anrufer | `onioncall call ADRESSE.onion` | verwendet exakt die von Gerät A angezeigte Adresse |
+
+> [!IMPORTANT]
+> **Jedes Gerät besitzt eine eigene Onion-Adresse. Unterschiedliche Adressen sind normal und richtig.** Angerufen wird ausschließlich die Adresse, die aktuell beim Empfänger nach `onioncall listen` steht. Verwende niemals die eigene Adresse des Anrufers, eine Adresse eines anderen Geräts oder eine Adresse aus einer gelöschten beziehungsweise neu eingerichteten Installation.
+
+Der Verbindungsschlüssel und die Onion-Adresse haben verschiedene Aufgaben:
+
+- Der **Verbindungsschlüssel** muss auf beiden Geräten identisch sein und authentifiziert das Gespräch. Er ist geheim.
+- Die **Onion-Adresse** bezeichnet nur das Gerät, das gerade mit `onioncall listen` empfängt. Die beiden Geräte müssen nicht dieselbe Onion-Adresse haben.
+
+### Schritt 1: Installation auf beiden Geräten prüfen
+
+Aktiviere auf **beiden Geräten** die virtuelle Umgebung. Bei einer ZIP-Installation kann der Ordner stattdessen `~/OnionCall-main` heißen.
+
+```bash
+cd ~/OnionCall
+source .venv/bin/activate
+onioncall doctor
+```
+
+Fahre erst fort, wenn `doctor` Tor, Audio, Datenverzeichnis und Verbindungsschlüssel mit `[OK]` meldet. Ein systemweiter Tor-Dienst muss nicht manuell gestartet werden; OnionCall startet seinen eigenen Tor-Prozess.
+
+### Schritt 2: Gemeinsamen Verbindungsschlüssel einrichten
+
+Auf **Gerät A** einen Schlüssel erzeugen und anzeigen:
 
 ```bash
 onioncall init
@@ -208,30 +246,68 @@ onioncall show-secret --confirm
 
 Falls `onioncall init` meldet, dass `conversation.key` bereits existiert, ist schon ein Schlüssel eingerichtet. Das ist kein Defekt. Zeige ihn einfach mit `onioncall show-secret --confirm` an. Gib jeden Befehl einzeln ein; `~` ist kein Trennzeichen zwischen Befehlen.
 
-Die Ausgabe beginnt mit `onioncall:v2:`. Person A übermittelt sie **über einen bereits sicheren Kanal** an Person B. Person B importiert sie über eine verdeckte Eingabe:
+Die Ausgabe beginnt mit `onioncall:v2:`. Übermittle ausschließlich diese Zeichenfolge **über einen bereits sicheren Kanal** an Gerät B.
+
+Auf **Gerät B** den Schlüssel über die verdeckte Eingabe importieren:
 
 ```bash
 onioncall init
 onioncall set-secret --replace
 ```
 
-OnionCall fragt nach dem Schlüssel. Beim Einfügen werden absichtlich keine Zeichen angezeigt; danach Enter drücken. So erscheint der Schlüssel nicht in der Shell-History. Den Schlüssel nicht in Gruppen, Screenshots oder unverschlüsselter E-Mail weitergeben. Wer ihn besitzt, kann sich als Gesprächspartner ausgeben. Für einen neuen Gesprächskreis einen neuen Schlüssel mit `onioncall init --replace` erzeugen.
+Beim Einfügen werden absichtlich keine Zeichen angezeigt. Drücke danach Enter. So erscheint der Schlüssel nicht in der Shell-History.
 
-## Gespräch starten und verwenden
+> [!WARNING]
+> Kopiere nicht den gesamten Ordner `~/.config/onioncall` zwischen den Geräten. Importiere nur die Zeichenfolge `onioncall:v2:…` mit `onioncall set-secret --replace`. Veröffentliche den Schlüssel nicht in Gruppen, Screenshots oder unverschlüsselter E-Mail. Wer ihn besitzt, kann sich als Gesprächspartner ausgeben.
 
-Der Empfänger startet zuerst:
+Für einen neuen Gesprächskreis erzeugst du mit `onioncall init --replace` bewusst einen neuen Schlüssel und importierst ihn anschließend auf allen beteiligten Geräten.
+
+### Schritt 3: Empfänger starten
+
+Auf **Gerät A**:
 
 ```bash
 onioncall listen
 ```
 
-OnionCall startet eine eigene Tor-Instanz und zeigt die persönliche Onion-Adresse. Der Anrufer verwendet:
+OnionCall startet eine eigene Tor-Instanz. Warte, bis beispielsweise Folgendes erscheint:
 
-```bash
-onioncall call abcdef…xyz.onion
+```text
+Deine Onion-Adresse: abcdef…xyz.onion
+Warte auf eine eingehende Verbindung …
 ```
 
-Nach erfolgreicher gegenseitiger Authentifizierung stehen folgende Befehle zur Verfügung:
+Lass dieses Terminal geöffnet. Wird `listen` beendet, ist der Empfänger nicht mehr erreichbar.
+
+### Schritt 4: Empfängeradresse übertragen
+
+Übermittle die vollständige, bei **Gerät A** angezeigte Adresse an Gerät B. Vergleiche sie vor dem Anruf Zeichen für Zeichen. Eine Onion-v3-Adresse besteht vor `.onion` aus 56 Zeichen.
+
+> [!CAUTION]
+> Die Adresse auf Gerät B kann anders aussehen. Das ist kein Fehler. Gerät B darf nicht seine eigene Adresse anrufen, sondern muss die gerade von Gerät A angezeigte Empfängeradresse verwenden.
+
+### Schritt 5: Vom Anrufer Verbindung aufbauen
+
+Während `onioncall listen` auf Gerät A weiterläuft, auf **Gerät B** ausführen:
+
+```bash
+onioncall call HIER-DIE-ADRESSE-VON-GERÄT-A.onion
+```
+
+Ersetze den gesamten Platzhalter durch die Adresse des Empfängers. Kein `https://`, keine Leerzeichen und keine zusätzlichen Zeichen anhängen.
+
+Der Fehler `SOCKS-Code 4` bedeutet, dass Tor das Ziel nicht erreichen konnte. Prüfe dann zuerst:
+
+1. Wurde wirklich die aktuell auf dem Empfänger angezeigte Adresse verwendet?
+2. Läuft `onioncall listen` auf dem Empfänger noch?
+3. Sind beide Geräte mit dem Internet verbunden und zeigt `onioncall doctor` Tor als `[OK]`?
+4. Wurde möglicherweise die eigene Adresse des Anrufers oder eine Adresse aus einer früheren Installation verwendet?
+
+Ein falscher Verbindungsschlüssel verursacht keinen SOCKS-Code 4. Er wird erst nach einer erfolgreichen Tor-Verbindung geprüft und führt dann zu einem Authentifizierungsfehler.
+
+### Schritt 6: Nachrichten und Sprache verwenden
+
+Nach erfolgreicher gegenseitiger Authentifizierung können beide Seiten folgende Befehle verwenden:
 
 ```text
 /text Hallo                 Text senden
@@ -239,6 +315,14 @@ Nach erfolgreicher gegenseitiger Authentifizierung stehen folgende Befehle zur V
 /help                       Hilfe anzeigen
 /quit                       Sitzung sicher beenden
 ```
+
+### Nächster Anruf und Rollenwechsel
+
+Eine Sitzung nimmt genau eine Verbindung an. Für ein weiteres Gespräch startet der Empfänger erneut `onioncall listen`. Die Adresse bleibt normalerweise gleich, solange dessen OnionCall-Datenverzeichnis nicht gelöscht oder ersetzt wird; maßgeblich ist trotzdem immer die aktuell angezeigte Adresse.
+
+Die Rollen können wechseln: Soll Gerät B der Empfänger sein, startet Gerät B `onioncall listen` und Gerät A ruft anschließend genau die dabei auf Gerät B angezeigte Adresse an.
+
+### Lokaler Funktionstest ohne Tor
 
 Für einen lokalen Funktionstest ohne Tor gibt es die absichtlich nicht beworbenen Diagnosebefehle:
 

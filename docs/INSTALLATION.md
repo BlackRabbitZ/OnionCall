@@ -264,7 +264,23 @@ onioncall doctor
 
 Android kann lange laufende Prozesse im Hintergrund beenden. Deaktiviere bei Bedarf die Akkuoptimierung für Termux und Termux:API.
 
-## Verbindungsschlüssel sicher austauschen
+## Zwei Geräte Schritt für Schritt verbinden
+
+Im folgenden Beispiel empfängt **Gerät A** den Anruf und **Gerät B** ruft an. Jedes Gerät besitzt eine eigene Onion-Adresse. Unterschiedliche Adressen sind normal. Der Anrufer verwendet immer exakt die Adresse, die der Empfänger bei `onioncall listen` anzeigt.
+
+### 1. Installation auf beiden Geräten prüfen
+
+Auf beiden Geräten:
+
+```bash
+cd ~/OnionCall
+source .venv/bin/activate
+onioncall doctor
+```
+
+Bei einer ZIP-Installation kann der Ordner `~/OnionCall-main` heißen. Fahre erst fort, wenn Tor und die übrigen Prüfungen `[OK]` melden.
+
+### 2. Verbindungsschlüssel sicher austauschen
 
 Beide Geräte müssen denselben zufälligen Verbindungsschlüssel besitzen.
 
@@ -294,21 +310,33 @@ onioncall set-secret --replace
 
 OnionCall fragt jetzt verdeckt nach dem Schlüssel. Beim Einfügen werden absichtlich keine Zeichen angezeigt. Drücke danach Enter. So steht der Schlüssel nicht als Befehl in der Shell-History.
 
-## Gespräch starten
+Kopiere niemals den gesamten Ordner `~/.config/onioncall` auf das andere Gerät. Importiere nur die Zeichenfolge `onioncall:v2:…`. Der Schlüssel muss auf beiden Geräten gleich sein; ihre Onion-Adressen sollen dagegen voneinander verschieden sein.
 
-Auf dem empfangenden Gerät:
+### 3. Empfänger starten
+
+Auf Gerät A:
 
 ```bash
 onioncall listen
 ```
 
-Warte, bis OnionCall eine Adresse mit 56 Zeichen und `.onion` anzeigt. Lass diesen Prozess laufen.
+Warte, bis OnionCall eine Adresse mit 56 Zeichen vor `.onion` anzeigt. Lass diesen Prozess und das Terminal laufen. Die angezeigte Adresse ist die **Empfängeradresse für diesen Anruf**.
 
-Auf dem anrufenden Gerät:
+### 4. Empfängeradresse an den Anrufer senden
+
+Übermittle die vollständige Adresse von Gerät A an Gerät B und vergleiche sie Zeichen für Zeichen. Verwende nicht die eigene Onion-Adresse von Gerät B, keine Adresse eines anderen Geräts und keine Adresse aus einer gelöschten oder neu eingerichteten Installation.
+
+### 5. Vom Anrufer verbinden
+
+Während Gerät A weiterhin wartet, auf Gerät B:
 
 ```bash
 onioncall call HIER-DIE-ONION-ADRESSE.onion
 ```
+
+Ersetze den vollständigen Platzhalter durch die Adresse, die gerade auf Gerät A steht. Unterschiedliche Onion-Adressen auf Gerät A und B sind normal und kein Fehler.
+
+### 6. Gespräch verwenden
 
 In der Sitzung:
 
@@ -318,6 +346,8 @@ In der Sitzung:
 /help           Hilfe anzeigen
 /quit           Sitzung beenden
 ```
+
+Für ein weiteres Gespräch startet der Empfänger erneut `onioncall listen`. Beim Rollenwechsel startet das andere Gerät `listen`; angerufen wird dann dessen angezeigte Adresse.
 
 ## Nach einem Neustart erneut verwenden
 
@@ -432,6 +462,17 @@ cat ~/.config/onioncall/tor/tor.log
 ```
 
 Teile Logs nur nach Prüfung; sie können Informationen über dein System oder deine Nutzung enthalten.
+
+### `Tor konnte die Onion-Adresse nicht verbinden (SOCKS-Code 4)`
+
+Tor konnte den angegebenen Onion-Service nicht erreichen. Kontrolliere in dieser Reihenfolge:
+
+1. Auf dem Empfänger läuft `onioncall listen` weiterhin.
+2. Der Anrufer verwendet exakt die Onion-Adresse, die der Empfänger gerade anzeigt.
+3. Der Anrufer verwendet nicht seine eigene Adresse oder eine Adresse aus einer früheren Installation.
+4. Beide Geräte haben Internetzugang und `onioncall doctor` meldet Tor als `[OK]`.
+
+Jedes Gerät hat eine eigene Onion-Adresse; unterschiedliche Adressen sind richtig. Ein falscher Verbindungsschlüssel verursacht keinen SOCKS-Code 4, sondern erst nach dem Tor-Verbindungsaufbau einen Authentifizierungsfehler.
 
 ## Sicherheitsgrenze
 
