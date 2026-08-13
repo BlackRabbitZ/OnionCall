@@ -22,6 +22,19 @@ def load_setup_module():
 setup = load_setup_module()
 
 
+def load_terminal_setup_module():
+    path = Path(__file__).parents[1] / "OnionCall-Terminal-Setup.py"
+    spec = importlib.util.spec_from_file_location("onioncall_terminal_setup", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Terminal-Setup-Modul konnte nicht geladen werden")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+terminal_setup = load_terminal_setup_module()
+
+
 class SetupScriptTests(unittest.TestCase):
     def setUp(self) -> None:
         self.server = setup.SetupServer(setup.InstallState())
@@ -54,6 +67,12 @@ class SetupScriptTests(unittest.TestCase):
                 commands = setup.package_command(manager)
                 self.assertTrue(commands)
                 self.assertEqual(commands[0][0], manager)
+
+    def test_terminal_setup_has_no_web_server_dependency(self) -> None:
+        source = (Path(__file__).parents[1] / "OnionCall-Terminal-Setup.py").read_text(encoding="utf-8")
+        self.assertNotIn("http.server", source)
+        self.assertNotIn("webbrowser", source)
+        self.assertEqual(terminal_setup.MIN_REPOSITORY_VERSION, (2, 3, 0))
 
 
 if __name__ == "__main__":

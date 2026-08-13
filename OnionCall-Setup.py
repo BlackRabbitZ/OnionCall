@@ -26,7 +26,7 @@ from urllib.parse import urlparse
 
 REPOSITORY = "https://github.com/BlackRabbitZ/OnionCall.git"
 MIN_PYTHON = (3, 10)
-MIN_REPOSITORY_VERSION = (2, 2, 0)
+MIN_REPOSITORY_VERSION = (2, 3, 0)
 MAX_REQUEST = 16 * 1024
 
 
@@ -294,7 +294,7 @@ def clone_or_update(state: InstallState) -> Path:
     match = re.search(r'^version\s*=\s*"(\d+)\.(\d+)\.(\d+)"', project_text, re.MULTILINE)
     version = tuple(int(part) for part in match.groups()) if match else (0, 0, 0)
     if version < MIN_REPOSITORY_VERSION:
-        raise InstallerError("Das GitHub-Repository ist älter als OnionCall 2.2.0 und muss zuerst aktualisiert werden")
+        raise InstallerError("Das GitHub-Repository ist älter als OnionCall 2.3.0 und muss zuerst aktualisiert werden")
     return source
 
 

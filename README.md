@@ -1,4 +1,4 @@
-# OnionCall 2.2
+# OnionCall 2.3
 
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Plattformen](https://img.shields.io/badge/Plattformen-Linux%20%7C%20macOS%20%7C%20Termux-2ea44f)
@@ -15,6 +15,7 @@ OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion
 - [Überblick](#überblick)
 - [Sicherheitsmerkmale](#sicherheitsmerkmale)
 - [Installation](#installation)
+  - [Ein-Datei-Terminal-Installation](#ein-datei-terminal-installation-ohne-web-gui)
   - [Automatische Ein-Datei-Installation](#automatische-ein-datei-installation-empfohlen)
   - [Was vorher installiert sein muss](#was-vorher-installiert-sein-muss)
   - [Was das Setup automatisch erledigt](#was-das-setup-automatisch-erledigt)
@@ -33,7 +34,8 @@ OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion
 - [OnionCall mit der GUI benutzen](#onioncall-mit-der-gui-benutzen)
   - [Erster Start](#erster-start)
   - [Zwei Geräte ohne Terminalbefehle verbinden](#zwei-geräte-ohne-terminalbefehle-verbinden)
-  - [Terminalmenü als Alternative](#terminalmenü-als-alternative)
+  - [Terminal-Oberfläche als Alternative](#terminal-oberfläche-als-alternative)
+- [OnionCall vollständig im Terminal benutzen](#onioncall-vollständig-im-terminal-benutzen)
 - [Zwei Geräte Schritt für Schritt einrichten](#zwei-geräte-schritt-für-schritt-einrichten)
   - [Rollen und Adressen verstehen](#rollen-und-adressen-verstehen)
   - [Installation auf beiden Geräten prüfen](#schritt-1-installation-auf-beiden-geräten-prüfen)
@@ -78,6 +80,35 @@ OnionCall überträgt Text und aufgezeichnete Opus-Sprachnachrichten, keine kont
 Die genaue Konstruktion und ihre Grenzen beschreibt [SECURITY.md](SECURITY.md).
 
 ## Installation
+
+### Ein-Datei-Terminal-Installation ohne Web-GUI
+
+Wenn du keine Browser-Oberfläche möchtest, lade nur **[`OnionCall-Terminal-Setup.py`](OnionCall-Terminal-Setup.py)** herunter. Die gesamte Installation läuft sichtbar im Terminal:
+
+```bash
+python3 OnionCall-Terminal-Setup.py
+```
+
+Wähle anschließend:
+
+```text
+1  OnionCall vollständig installieren oder aktualisieren
+2  Installiertes OnionCall Terminal starten
+3  Installationspfad anzeigen
+0  Beenden
+```
+
+Das Terminal-Setup erkennt die Plattform, installiert fehlendes Tor und Audio-Werkzeuge, klont das Repository, erstellt die Python-Umgebung, prüft die Installation und zeigt am Ende **DONE**. Danach kann es direkt die Terminal-Oberfläche öffnen. Es startet keinen lokalen Webserver und öffnet keinen Browser.
+
+Unter Android/Termux:
+
+```bash
+pkg install python
+termux-setup-storage
+python ~/storage/downloads/OnionCall-Terminal-Setup.py
+```
+
+Auch hier müssen Python 3.10 oder neuer sowie unter macOS Homebrew bereits verfügbar sein. Termux und Termux:API müssen auf Android als Apps aus derselben vertrauenswürdigen Quelle installiert sein.
 
 ### Automatische Ein-Datei-Installation (empfohlen)
 
@@ -304,15 +335,54 @@ Auch `onioncall` oder `onioncall gui` öffnet die grafische Oberfläche. Sie zei
 > [!CAUTION]
 > Der Verbindungsschlüssel ist geheim; die Onion-Adresse ist die erreichbare Adresse des aktuellen Empfängers. Füge niemals eine `.onion`-Adresse in den Schlüsseldialog und niemals `onioncall:v2:…` in den Anrufdialog ein.
 
-### Terminalmenü als Alternative
+### Terminal-Oberfläche als Alternative
 
-Das frühere geführte Terminalmenü bleibt für Geräte ohne geeigneten Browser verfügbar:
+Die vollständige Terminal-Oberfläche ist für Geräte ohne geeigneten Browser verfügbar:
 
 ```bash
 onioncall menu
 ```
 
-Es bietet Empfangen, Anrufen, Schlüsseleinrichtung und Diagnose als nummerierte Auswahl. Die direkten Befehle wie `onioncall listen` und `onioncall call …` bleiben für erfahrene Benutzer und Skripte verfügbar. Die folgende ausführliche Terminalanleitung erklärt weiterhin jeden Einzelschritt.
+Sie bietet Empfangen, Anrufen, Onion-Adresse, Schlüsselverwaltung, Audiotest, Diagnose und Einstellungen als nummerierte Auswahl. Die direkten Befehle wie `onioncall listen` und `onioncall call …` bleiben für erfahrene Benutzer und Skripte verfügbar. Die folgende ausführliche Terminalanleitung erklärt weiterhin jeden Einzelschritt.
+
+## OnionCall vollständig im Terminal benutzen
+
+Nach der Terminal-Installation startest du die Anwendung jederzeit mit:
+
+```bash
+onioncall-terminal
+```
+
+Alternativ funktionieren:
+
+```bash
+onioncall terminal
+onioncall menu
+```
+
+Das vollständige Menü enthält:
+
+```text
+1  Gespräch empfangen
+2  Person anrufen
+3  Meine Onion-Adresse anzeigen
+4  Verbindungsschlüssel verwalten
+5  Audio testen (3 Sekunden)
+6  Installation ausführlich prüfen
+7  Einstellungen
+0  Beenden
+```
+
+Oberhalb des Menüs stehen bei jedem Durchlauf der aktuelle Zustand von Tor, Verbindungsschlüssel und Audio sowie die gespeicherte Onion-Adresse. Beim Empfangen startet OnionCall Tor automatisch, zeigt die erreichbare Adresse und wartet auf eine Verbindung. Beim Anrufen wird die Empfängeradresse abgefragt. Nach erfolgreicher Authentifizierung läuft der Chat vollständig im Terminal:
+
+```text
+Hallo                         Text senden
+a                             fünf Sekunden Audio aufnehmen und senden
+q                             Sitzung beenden
+/help                         alle Chatbefehle anzeigen
+```
+
+Es wird dabei weder eine Web-GUI noch ein Browser benötigt.
 
 ## Zwei Geräte Schritt für Schritt einrichten
 
@@ -579,7 +649,7 @@ Beiträge sind willkommen. Lies vorher [CONTRIBUTING.md](CONTRIBUTING.md) und me
 
 ## Projektstatus
 
-Version 2.2.0 ist ein gehärtetes, getestetes MVP mit lokaler Installations- und Anwendungs-GUI. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
+Version 2.3.0 ist ein gehärtetes, getestetes MVP mit gleichwertiger Terminal- und lokaler Browser-Oberfläche. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
 
 ## Urheber und Lizenz
 

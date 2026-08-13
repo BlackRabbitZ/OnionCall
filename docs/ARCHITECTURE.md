@@ -13,6 +13,7 @@ OnionCall besteht aus klar getrennten Bereichen:
 | `gui_session.py` | threadsichere Brücke zwischen verschlüsseltem Kanal und GUI |
 | `webgui.py` | ausschließlich lokale Browser-GUI, Status und Aktionen |
 | `OnionCall-Setup.py` | eigenständige grafische Installation und Plattform-Starter |
+| `OnionCall-Terminal-Setup.py` | eigenständige Installation ohne Browser oder lokalen HTTP-Server |
 
 ## Lokale grafische Oberfläche
 
@@ -21,6 +22,8 @@ Die GUI enthält keinen externen Webserver und lädt keine entfernten Skripte, S
 Browser und OnionCall-Prozess laufen auf demselben Gerät. Der lokale HTTP-Teil ersetzt nur die Darstellung; Text und Audio durchlaufen danach unverändert den authentifizierten OnionCall-Kanal und Tor. Beim Schließen des Prozesses verschwindet auch die Oberfläche.
 
 Das Setup verwendet denselben lokalen Ansatz. Systempakete werden ausschließlich über den erkannten Paketmanager installiert. Ein Administratorpasswort wird nicht von OnionCall gelesen oder gespeichert; eine Freigabe erfolgt über `pkexec`, `sudo` oder den Mechanismus des Betriebssystems.
+
+Die Terminal-Oberfläche ruft dieselben Konfigurations-, Tor-, Protokoll- und Audiofunktionen direkt auf. Sie benötigt weder den Browser noch `webgui.py`. Das Terminal-Setup führt alle Installationsschritte synchron aus und zeigt jeden ausgeführten Systembefehl sichtbar an.
 
 ## Verbindungsaufbau
 

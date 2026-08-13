@@ -13,7 +13,10 @@ build/
 dist/
 *.whl
 build-env-*/
+build-via-sdist-*/
 build-requirements-*.txt
+pip-metadata-*/
+pip-unpack-*/
 
 # Editors and operating systems
 .idea/

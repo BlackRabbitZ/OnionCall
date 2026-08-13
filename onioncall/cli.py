@@ -10,7 +10,7 @@ import sys
 from contextlib import suppress
 
 from . import __version__
-from .audio import AudioBackend, is_termux, missing_audio_commands
+from .audio import AudioBackend, AudioError, is_termux, missing_audio_commands
 from .config import (
     ConfigError,
     app_home,
@@ -34,7 +34,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--version", action="version", version=f"OnionCall {__version__}")
     commands = result.add_subparsers(dest="command")
 
-    commands.add_parser("menu", help="Geführten Startbildschirm öffnen")
+    commands.add_parser("menu", help="Vollständige Terminal-Oberfläche öffnen")
+    commands.add_parser("terminal", help="Vollständige Terminal-Oberfläche öffnen")
 
     gui = commands.add_parser("gui", help="Lokale grafische Oberfläche öffnen")
     gui.add_argument("--port", type=int, default=0, help="Lokaler HTTP-Port (Standard: automatisch)")
@@ -168,6 +169,72 @@ def _key_menu() -> None:
             print("Bitte 1, 2 oder 0 wählen.")
 
 
+def _stored_onion_address() -> str | None:
+    hostname = app_home() / "tor" / "onion_service" / "hostname"
+    try:
+        return validate_onion(hostname.read_text(encoding="ascii").strip())
+    except (OSError, TorError):
+        return None
+
+
+def _terminal_status() -> None:
+    config = load_config()
+    tor_ok = shutil.which(config.tor_binary) is not None
+    audio_missing = missing_audio_commands()
+    try:
+        load_secret()
+        key_ok = True
+    except ConfigError:
+        key_ok = False
+    address = _stored_onion_address()
+    print(f"Tor: {'[OK]' if tor_ok else '[FEHLT]'}", end="  ")
+    print(f"Schlüssel: {'[OK]' if key_ok else '[FEHLT]'}", end="  ")
+    print(f"Audio: {'[OK]' if not audio_missing else '[FEHLT]'}")
+    print(f"Onion-Adresse: {address or 'wird beim ersten Empfangen erstellt'}")
+
+
+def _show_address() -> None:
+    address = _stored_onion_address()
+    if address:
+        print("\nDeine gespeicherte Onion-Adresse:")
+        print(address)
+        print("Maßgeblich ist immer die Adresse, die beim Empfangen angezeigt wird.")
+    else:
+        print("\nNoch keine Onion-Adresse vorhanden. Wähle zuerst ‚Gespräch empfangen‘.")
+
+
+def _audio_test() -> None:
+    config = load_config()
+    print("\nAudiotest: drei Sekunden aufnehmen …")
+    payload = _audio(config).record_opus(3)
+    print("Aufnahme wird wiedergegeben …")
+    _audio(config).play_opus(payload)
+    print("Audiotest erfolgreich.")
+
+
+def _number_setting(label: str, current: int, minimum: int, maximum: int) -> int:
+    entered = input(f"{label} [{current}]: ").strip()
+    if not entered:
+        return current
+    if not entered.isdigit() or not minimum <= int(entered) <= maximum:
+        raise ConfigError(f"{label} muss zwischen {minimum} und {maximum} liegen")
+    return int(entered)
+
+
+def _settings_menu() -> None:
+    config = load_config()
+    print("\n--- Einstellungen ---")
+    print("Enter übernimmt jeweils den bisherigen Wert.")
+    try:
+        config.listen_port = _number_setting("Gesprächsport", config.listen_port, 1024, 65535)
+        config.socks_port = _number_setting("Tor-SOCKS-Port", config.socks_port, 1024, 65535)
+        config.max_audio_seconds = _number_setting("Maximale Audiosekunden", config.max_audio_seconds, 1, 300)
+        save_config(config)
+        print("Einstellungen sicher gespeichert.")
+    except (EOFError, ConfigError) as exc:
+        print(f"Fehler: {exc}", file=sys.stderr)
+
+
 def _address_for_menu() -> str:
     config = load_config()
     if config.last_address:
@@ -189,13 +256,19 @@ def _address_for_menu() -> str:
 
 def _menu() -> int:
     while True:
-        print("\n============================")
-        print("         OnionCall v2")
-        print("============================")
+        print("\n========================================================")
+        print(f"                  OnionCall {__version__}")
+        print("        Sicherer Text und Sprache über Tor")
+        print("========================================================")
+        _terminal_status()
+        print("--------------------------------------------------------")
         print("1  Gespräch empfangen")
         print("2  Person anrufen")
-        print("3  Verbindungsschlüssel einrichten")
-        print("4  Installation prüfen")
+        print("3  Meine Onion-Adresse anzeigen")
+        print("4  Verbindungsschlüssel verwalten")
+        print("5  Audio testen (3 Sekunden)")
+        print("6  Installation ausführlich prüfen")
+        print("7  Einstellungen")
         print("0  Beenden")
         try:
             choice = input("Auswahl: ").strip()
@@ -218,15 +291,32 @@ def _menu() -> int:
             main(["call", address])
             _pause()
         elif choice == "3":
-            _key_menu()
+            _show_address()
+            _pause()
         elif choice == "4":
+            _key_menu()
+        elif choice == "5":
+            try:
+                _audio_test()
+            except (AudioError, ConfigError, OSError) as exc:
+                print(f"Fehler: {exc}", file=sys.stderr)
+            _pause()
+        elif choice == "6":
             _doctor()
+            _pause()
+        elif choice == "7":
+            _settings_menu()
             _pause()
         elif choice == "0":
             print("OnionCall beendet.")
             return 0
         else:
-            print("Bitte 1, 2, 3, 4 oder 0 wählen.")
+            print("Bitte eine Zahl von 0 bis 7 wählen.")
+
+
+def run_terminal() -> int:
+    """Entry point for the complete terminal interface."""
+    return _menu()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -236,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
             return run_gui()
         if args.command == "gui":
             return run_gui(port=args.port, open_browser=not args.no_browser)
-        if args.command == "menu":
+        if args.command in {"menu", "terminal"}:
             return _menu()
         if args.command == "init":
             home = app_home()

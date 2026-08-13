@@ -4,6 +4,26 @@ Diese Anleitung führt vollständig durch automatische oder manuelle Installatio
 
 ## Empfohlen: eine Datei und eine grafische Installation
 
+### Vollständig im Terminal installieren
+
+Wenn du keine Web-GUI möchtest, lade stattdessen `OnionCall-Terminal-Setup.py` herunter und starte:
+
+```bash
+python3 OnionCall-Terminal-Setup.py
+```
+
+Wähle **1**, um Systemprogramme, Tor, Audio-Werkzeuge, Repository und Python-Umgebung automatisch einzurichten. Nach **DONE** kann das Setup direkt `onioncall-terminal` öffnen. Installation, Status, Einrichtung, Anruf und Chat bleiben vollständig im Terminal; es wird kein lokaler Webserver gestartet.
+
+Unter Android/Termux:
+
+```bash
+pkg install python
+termux-setup-storage
+python ~/storage/downloads/OnionCall-Terminal-Setup.py
+```
+
+### Mit lokaler Browser-GUI installieren
+
 Lade `OnionCall-Setup.py` herunter und starte sie im Downloadordner:
 
 ```bash
@@ -89,11 +109,11 @@ cd OnionCall-main
 ls pyproject.toml
 ```
 
-Falls du stattdessen das Release-Archiv `OnionCall-v2.2.0.zip` verwendest:
+Falls du stattdessen das Release-Archiv `OnionCall-v2.3.0.zip` verwendest:
 
 ```bash
 cd ~/Downloads
-unzip OnionCall-v2.2.0.zip
+unzip OnionCall-v2.3.0.zip
 cd OnionCall
 ls pyproject.toml
 ```
@@ -305,7 +325,7 @@ OnionCall merkt sich die zuletzt angerufene Adresse. Eine `.onion`-Adresse wird 
 
 Die einmalige bewusste Übertragung von Schlüssel und Empfängeradresse bleibt erforderlich. Dadurch braucht OnionCall weder automatische Erkennung im lokalen Netzwerk noch einen zentralen Kontaktserver.
 
-Das frühere nummerierte Terminalmenü bleibt mit `onioncall menu` verfügbar.
+Die vollständige nummerierte Terminal-Oberfläche bleibt mit `onioncall-terminal`, `onioncall terminal` oder `onioncall menu` verfügbar. Sie enthält zusätzlich Onion-Adresse, Audiotest und Einstellungen.
 
 ## Zwei Geräte Schritt für Schritt verbinden
 

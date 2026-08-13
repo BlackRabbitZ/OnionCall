@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "onioncall"
-version = "2.2.0"
+version = "2.3.0"
 description = "Authenticated push-to-talk voice and text over Tor onion services"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,6 +36,7 @@ dev = ["build>=1.2,<2", "ruff>=0.12,<1"]
 [project.scripts]
 onioncall = "onioncall.cli:main"
 onioncall-gui = "onioncall.webgui:run_gui"
+onioncall-terminal = "onioncall.cli:run_terminal"
 
 [project.urls]
 Homepage = "https://github.com/BlackRabbitZ/OnionCall"

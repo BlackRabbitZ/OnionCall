@@ -2,6 +2,20 @@
 
 Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [2.3.0] – 2026-08-13
+
+### Hinzugefügt
+
+- vollständige nummerierte Terminal-Oberfläche mit kompaktem Status für Tor, Schlüssel, Audio und Onion-Adresse
+- direkte Terminal-Auswahl für Empfangen, Anrufen, Onion-Adresse, Schlüsselverwaltung, Audiotest, Diagnose und Einstellungen
+- eigenständige Datei `OnionCall-Terminal-Setup.py` für Installation und Aktualisierung vollständig ohne Web-GUI
+- eigener Programmstarter `onioncall-terminal` sowie Terminal-Starter für Linux, macOS und optional Termux:Widget
+
+### Geändert
+
+- das bisherige einfache Terminalmenü wurde zu einer vollständigen alternativen Benutzeroberfläche erweitert
+- `onioncall terminal` und `onioncall menu` öffnen dieselbe Terminal-Oberfläche
+
 ## [2.2.0] – 2026-08-13
 
 ### Hinzugefügt

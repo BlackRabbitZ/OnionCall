@@ -67,6 +67,10 @@ class ConfigAndInputTests(unittest.TestCase):
         with mock.patch("builtins.input", return_value="0"):
             self.assertEqual(main(["menu"]), 0)
 
+    def test_terminal_alias_opens_complete_menu(self) -> None:
+        with mock.patch("builtins.input", return_value="0"):
+            self.assertEqual(main(["terminal"]), 0)
+
     def test_no_subcommand_opens_gui(self) -> None:
         with mock.patch("onioncall.cli.run_gui", return_value=0) as gui:
             self.assertEqual(main([]), 0)
