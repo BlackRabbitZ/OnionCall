@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import os
 import platform
 import shutil
@@ -38,7 +39,11 @@ def parser() -> argparse.ArgumentParser:
     show.add_argument("--confirm", action="store_true", help="Bestätigt die bewusste Anzeige")
 
     set_secret = commands.add_parser("set-secret", help="Verbindungsschlüssel der Gegenstelle importieren")
-    set_secret.add_argument("token", help="onioncall:v2:…")
+    set_secret.add_argument(
+        "token",
+        nargs="?",
+        help="onioncall:v2:… (aus Sicherheitsgründen weglassen und verdeckt eingeben)",
+    )
     set_secret.add_argument("--replace", action="store_true")
 
     commands.add_parser("doctor", help="Installation und Dateirechte prüfen")
@@ -117,7 +122,12 @@ def main(argv: list[str] | None = None) -> int:
             print(secret_token(load_secret()))
             return 0
         if args.command == "set-secret":
-            import_secret(args.token, replace=args.replace)
+            token = args.token
+            if token is None:
+                token = getpass.getpass("Verbindungsschlüssel (Eingabe bleibt unsichtbar): ").strip()
+            if not token:
+                raise ConfigError("Verbindungsschlüssel darf nicht leer sein")
+            import_secret(token, replace=args.replace)
             print("Verbindungsschlüssel sicher gespeichert.")
             return 0
         if args.command == "doctor":

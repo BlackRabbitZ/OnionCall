@@ -4,6 +4,15 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 
 ## [Unreleased]
 
+### Geändert
+
+- vollständige, plattformspezifische Installationsanleitung mit Download-, Ordner-, Update- und Fehlerbehebungsschritten
+- Unterstützung für aktuelle `cryptography`-Pakete bis vor Version 51, insbesondere für Termux
+
+### Sicherheit
+
+- `onioncall set-secret` fragt den Verbindungsschlüssel ohne Argument verdeckt ab, damit er nicht in der Shell-History erscheint
+
 ### Geplant
 
 - reale Integrationstests auf Linux, macOS und Android/Termux

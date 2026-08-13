@@ -5,7 +5,9 @@ import stat
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from onioncall.cli import main
 from onioncall.config import ConfigError, generate_secret, load_secret, secret_path, secret_token
 from onioncall.session import safe_display
 from onioncall.tor import TorError, validate_onion
@@ -31,6 +33,18 @@ class ConfigAndInputTests(unittest.TestCase):
     def test_secret_token_does_not_accept_short_keys(self) -> None:
         with self.assertRaises(ConfigError):
             secret_token(b"short")
+
+    def test_set_secret_prompts_without_command_line_token(self) -> None:
+        replacement = b"r" * 32
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            mock.patch.dict(os.environ, {"ONIONCALL_HOME": directory}),
+        ):
+            self.assertEqual(main(["init"]), 0)
+            with mock.patch("onioncall.cli.getpass.getpass", return_value=secret_token(replacement)) as prompt:
+                self.assertEqual(main(["set-secret", "--replace"]), 0)
+            prompt.assert_called_once()
+            self.assertEqual(load_secret(Path(directory)), replacement)
 
     def test_terminal_escape_characters_are_removed(self) -> None:
         output = safe_display("hallo\x1b]52;c;evil\x07")

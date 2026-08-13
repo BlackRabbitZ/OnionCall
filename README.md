@@ -34,61 +34,75 @@ OnionCall überträgt aufgezeichnete Opus-Sprachnachrichten, keine kontinuierlic
 
 Die genaue Konstruktion und ihre Grenzen beschreibt [SECURITY.md](SECURITY.md).
 
-## Schnellstart
+## Vor der Installation
+
+Du musst zuerst zwei Dinge herunterladen beziehungsweise installieren:
+
+1. Systemprogramme für Python, Git, Tor und Audio.
+2. Dieses OnionCall-Repository mit Git oder als ZIP-Datei.
+
+> [!IMPORTANT]
+> `python -m pip install .` installiert das Projekt aus dem **aktuellen Ordner**. Der Punkt `.` bedeutet „dieser Ordner“. Wechsle deshalb zuerst mit `cd OnionCall` in das heruntergeladene Repository. Dort muss die Datei `pyproject.toml` liegen.
+
+Kontrolle vor der Installation:
 
 ```bash
+pwd
+ls pyproject.toml
+```
+
+Eine vollständige Schritt-für-Schritt-Anleitung für Fedora, Debian/Ubuntu, Arch Linux, macOS und Android/Termux steht in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**. Sie enthält auch Aktualisierung, Deinstallation und Fehlerbehebung.
+
+## Schnellstart unter Fedora
+
+Die folgenden Befehle nacheinander ausführen:
+
+```bash
+# 1. Benötigte Systemprogramme installieren
+sudo dnf install git python3 python3-pip tor opus-tools alsa-utils
+
+# 2. Repository in das Home-Verzeichnis herunterladen
+cd ~
+git clone https://github.com/BlackRabbitZ/OnionCall.git
+
+# 3. In den heruntergeladenen Projektordner wechseln
+cd OnionCall
+
+# 4. Prüfen, ob dies wirklich der Projektordner ist
+ls pyproject.toml
+
+# 5. Abgeschlossene Python-Umgebung erstellen und aktivieren
 python3 -m venv .venv
-. .venv/bin/activate
+source .venv/bin/activate
+
+# 6. OnionCall aus genau diesem Ordner installieren
+python -m pip install --upgrade pip
 python -m pip install .
+
+# 7. Einrichten und alle Abhängigkeiten prüfen
 onioncall init
 onioncall doctor
 ```
 
-Danach tauschen beide Personen einmalig den mit `onioncall show-secret --confirm` erzeugten Schlüssel über einen bereits sicheren Kanal aus. Eine Seite startet `onioncall listen`, die andere `onioncall call ADRESSE.onion`.
-
-## Installation
-
-### Linux (Debian/Ubuntu/Raspberry Pi OS)
+Wenn das Terminal später neu geöffnet wird, muss OnionCall nicht erneut installiert werden. Aktiviere nur wieder die Umgebung:
 
 ```bash
-sudo apt update
-sudo apt install python3 python3-venv tor opus-tools alsa-utils
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install .
-onioncall init
+cd ~/OnionCall
+source .venv/bin/activate
 onioncall doctor
 ```
 
-Fedora verwendet entsprechend `dnf install python3 tor opus-tools alsa-utils`, Arch Linux `pacman -S python tor opus-tools alsa-utils`.
+## Andere Plattformen – benötigte Downloads
 
-### macOS
+| Plattform | Vorher installieren |
+| --- | --- |
+| Fedora | `git python3 python3-pip tor opus-tools alsa-utils` |
+| Debian/Ubuntu/Raspberry Pi OS | `git python3 python3-venv python3-pip tor opus-tools alsa-utils` |
+| Arch Linux | `git python tor opus-tools alsa-utils` |
+| macOS | Homebrew, danach `git python tor opus-tools sox` |
+| Android/Termux | Termux und Termux:API aus derselben Quelle; danach `git python python-cryptography tor opus-tools sox ffmpeg termux-api` |
 
-```bash
-brew install python tor opus-tools sox
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install .
-onioncall init
-onioncall doctor
-```
-
-Beim ersten Zugriff fragt macOS nach der Mikrofonberechtigung für das Terminal.
-
-### Android/Termux
-
-Termux und die separate App **Termux:API** müssen aus derselben Quelle, vorzugsweise F-Droid, installiert werden. Der Play-Store-Build von Termux ist veraltet.
-
-```bash
-pkg update
-pkg install python tor opus-tools sox ffmpeg termux-api
-python -m pip install .
-termux-setup-storage   # nur falls von Android verlangt; OnionCall selbst braucht keinen Shared Storage
-onioncall init
-onioncall doctor
-```
-
-In Android muss Termux:API Mikrofonzugriff erhalten. Die Android-Akkuoptimierung kann einen lange laufenden Listener beenden.
+Die passenden Paketmanager-Befehle und sämtliche folgenden Schritte stehen in der [Installationsanleitung](docs/INSTALLATION.md).
 
 ## Erster sicherer Schlüsselaustausch
 
@@ -99,14 +113,14 @@ onioncall init
 onioncall show-secret --confirm
 ```
 
-Die Ausgabe beginnt mit `onioncall:v2:`. Person A übermittelt sie **über einen bereits sicheren Kanal** an Person B. Person B importiert sie:
+Die Ausgabe beginnt mit `onioncall:v2:`. Person A übermittelt sie **über einen bereits sicheren Kanal** an Person B. Person B importiert sie über eine verdeckte Eingabe:
 
 ```bash
 onioncall init
-onioncall set-secret 'onioncall:v2:…' --replace
+onioncall set-secret --replace
 ```
 
-Den Schlüssel nicht in Gruppen, Screenshots, Shell-History oder unverschlüsselter E-Mail weitergeben. Wer ihn besitzt, kann sich als Gesprächspartner ausgeben. Für einen neuen Gesprächskreis einen neuen Schlüssel mit `onioncall init --replace` erzeugen.
+OnionCall fragt nach dem Schlüssel. Beim Einfügen werden absichtlich keine Zeichen angezeigt; danach Enter drücken. So erscheint der Schlüssel nicht in der Shell-History. Den Schlüssel nicht in Gruppen, Screenshots oder unverschlüsselter E-Mail weitergeben. Wer ihn besitzt, kann sich als Gesprächspartner ausgeben. Für einen neuen Gesprächskreis einen neuen Schlüssel mit `onioncall init --replace` erzeugen.
 
 ## Verwendung
 

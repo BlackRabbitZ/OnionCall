@@ -11,11 +11,24 @@ Danke für dein Interesse. OnionCall verarbeitet sicherheitsrelevante Daten; kle
 
 ## Entwicklungsumgebung
 
+Repository herunterladen und in den Projektordner wechseln:
+
+```bash
+cd ~
+git clone https://github.com/BlackRabbitZ/OnionCall.git
+cd OnionCall
+ls pyproject.toml
+```
+
+Erst innerhalb dieses Ordners die Entwicklungsumgebung erstellen:
+
 ```bash
 python3 -m venv .venv
-. .venv/bin/activate
+source .venv/bin/activate
 python -m pip install -e '.[dev]'
 ```
+
+Die benötigten Systempakete für alle unterstützten Plattformen beschreibt [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 Vor einem Pull Request müssen diese Befehle erfolgreich sein:
 
