@@ -27,7 +27,7 @@ classifiers = [
     "Topic :: Communications",
     "Topic :: Security :: Cryptography",
 ]
-dependencies = ["cryptography>=42,<48"]
+dependencies = ["cryptography>=42,<51"]
 
 [project.optional-dependencies]
 dev = ["build>=1.2,<2", "ruff>=0.12,<1"]
