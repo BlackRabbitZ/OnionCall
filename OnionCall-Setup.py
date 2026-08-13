@@ -179,7 +179,7 @@ def package_command(manager: str) -> list[list[str]]:
                 "sox",
                 "ffmpeg",
                 "termux-api",
-            ]
+            ],
         ]
     if manager == "dnf":
         return [["dnf", "install", "-y", "git", "python3", "python3-pip", "tor", "opus-tools", "alsa-utils"]]
@@ -331,10 +331,7 @@ def private_write(path: Path, text: str, executable: bool = False) -> None:
 def create_launchers(source: Path, venv: Path, state: InstallState) -> None:
     onioncall = venv_executable(venv, "onioncall")
     launcher = Path.home() / ".local" / "bin" / "onioncall-gui"
-    launcher_text = (
-        f"#!/bin/sh\ncd {shlex.quote(str(source))}\n"
-        f"exec {shlex.quote(str(onioncall))} gui \"$@\"\n"
-    )
+    launcher_text = f'#!/bin/sh\ncd {shlex.quote(str(source))}\nexec {shlex.quote(str(onioncall))} gui "$@"\n'
     private_write(launcher, launcher_text, True)
     state.emit(f"Starter erstellt: {launcher}")
     if is_termux():
@@ -367,11 +364,11 @@ def verify_install(venv: Path, state: InstallState) -> None:
         raise InstallerError("Die Diagnose meldet fehlende Systemprogramme")
 
 
-INSTALL_HTML = r'''<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OnionCall Setup</title><style nonce="__NONCE__">
+INSTALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OnionCall Setup</title><style nonce="__NONCE__">
 :root{--bg:#090b10;--panel:#121722;--line:#30394b;--text:#f1f4f8;--muted:#96a2b3;--purple:#a98cff;--green:#68de91;--red:#ff7b84}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0,#211a39,transparent 42%),var(--bg);color:var(--text);font:15px/1.55 system-ui,sans-serif;display:grid;place-items:center}.card{width:min(790px,calc(100% - 24px));background:#111620ee;border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:0 30px 90px #0009}.head{display:flex;align-items:center;gap:15px}.logo{width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,var(--purple),#6548d3);display:grid;place-items:center;color:#100b1b;font-size:28px;font-weight:900}.head h1{margin:0;font-size:24px}.head p{margin:2px 0;color:var(--muted)}.system{margin:20px 0 8px;color:var(--muted)}.bar{height:12px;border-radius:99px;background:#080b10;overflow:hidden;border:1px solid var(--line)}.fill{height:100%;width:0;background:linear-gradient(90deg,#7255dd,var(--purple),#70dfbe);transition:.35s}.detail{display:flex;justify-content:space-between;margin:9px 0 16px}.detail span:last-child{color:var(--muted)}.log{height:270px;overflow:auto;background:#090c12;border:1px solid var(--line);border-radius:12px;padding:13px;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap}.log .error{color:#ff9da4}.log .step{color:#8ce6c2}.buttons{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}button{border:1px solid #4a5570;background:#202737;color:var(--text);padding:12px 17px;border-radius:11px;font:inherit;font-weight:700;cursor:pointer}button.primary{background:linear-gradient(135deg,#8668ee,#6547ce);border-color:#b29cff}button:disabled{opacity:.45;cursor:not-allowed}.notice{margin-top:14px;color:var(--muted);font-size:12px}.done{color:var(--green);font-weight:800}.failure{color:var(--red);font-weight:800}@media(max-width:600px){.card{padding:18px}.log{height:230px}.buttons{flex-direction:column}button{width:100%}}
 </style></head><body><main class="card"><div class="head"><div class="logo">O</div><div><h1>OnionCall Setup</h1><p>Geführte Installation für Linux, macOS und Android/Termux</p></div></div><div class="system" id="system">System wird erkannt …</div><div class="bar"><div class="fill" id="fill"></div></div><div class="detail"><strong id="detail">Bereit</strong><span id="percent">0 %</span></div><div class="log" id="log"></div><div class="buttons"><button class="primary" id="install">Installation starten</button><button class="primary" id="launch" disabled>OnionCall öffnen</button></div><div class="notice">Die Oberfläche läuft ausschließlich lokal auf diesem Gerät. Administratorfreigaben erfolgen über den Systemdialog oder das Terminal; dein Passwort wird nicht von OnionCall gelesen oder gespeichert.</div></main><script nonce="__NONCE__">
 const TOKEN='__TOKEN__';let last=0;const $=x=>document.getElementById(x);async function api(p){const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json','X-OnionCall-Token':TOKEN},body:'{}'});const j=await r.json();if(!r.ok)throw Error(j.error||'Fehler');return j}function add(e){const n=document.createElement('div');n.className=e.kind;n.textContent=e.message;$('log').append(n);$('log').scrollTop=$('log').scrollHeight}async function poll(){try{const r=await fetch('/api/status?after='+last,{cache:'no-store'}),s=await r.json();$('system').textContent='Erkannt: '+s.platform+' · Ziel: '+s.install_dir;$('fill').style.width=s.progress+'%';$('percent').textContent=s.progress+' %';$('detail').textContent=s.detail;$('detail').className=s.status==='done'?'done':s.status==='error'?'failure':'';s.events.forEach(add);last=s.last_event;$('install').disabled=s.status==='running'||s.status==='done';$('launch').disabled=s.status!=='done'}catch(e){}setTimeout(poll,650)}$('install').onclick=()=>api('/api/install').catch(e=>add({kind:'error',message:e.message}));$('launch').onclick=()=>api('/api/launch').catch(e=>add({kind:'error',message:e.message}));poll();
-</script></body></html>'''
+</script></body></html>"""
 
 
 class SetupServer(ThreadingHTTPServer):
