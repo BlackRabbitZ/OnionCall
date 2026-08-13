@@ -5,20 +5,49 @@
 ![Lizenz](https://img.shields.io/badge/Lizenz-Apache--2.0-blue)
 ![Status](https://img.shields.io/badge/Status-Alpha-orange)
 
-OnionCall ist eine neu entwickelte Push-to-talk- und Textanwendung für Tor-Onion-Services. Sie ist **nicht** protokollkompatibel mit TerminalPhone 1.x. Diese Trennung ist beabsichtigt: Unsichere Altlasten werden nicht übernommen.
+OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion-Services mit einem sicherheitsorientierten Protokoll.
 
 > [!CAUTION]
 > OnionCall wurde noch nicht unabhängig auditiert. Verwende diese Alpha-Version nicht als alleinige Schutzmaßnahme in einer Hochrisikosituation.
 
-Unterstützte Systeme:
+## Inhaltsverzeichnis
+
+- [Überblick](#überblick)
+- [Sicherheitsmerkmale](#sicherheitsmerkmale)
+- [Installation](#installation)
+  - [Voraussetzungen](#voraussetzungen)
+  - [Systemprogramme nach Plattform](#systemprogramme-nach-plattform)
+    - [Fedora](#fedora)
+    - [Debian und Ubuntu](#debian-und-ubuntu)
+    - [Raspberry Pi OS](#raspberry-pi-os)
+    - [Arch Linux](#arch-linux-und-darauf-basierende-distributionen)
+    - [macOS](#macos)
+    - [Android mit Termux](#android-mit-termux)
+  - [Linux und macOS installieren](#onioncall-unter-linux-und-macos-installieren)
+  - [Android und Termux installieren](#onioncall-unter-android-und-termux-installieren)
+  - [Nach einem Terminalneustart](#nach-dem-nächsten-terminalstart)
+  - [Hilfe bei fehlendem Tor](#wenn-tor-fehlt)
+- [Verbindungsschlüssel sicher austauschen](#verbindungsschlüssel-sicher-austauschen)
+- [Gespräch starten und verwenden](#gespräch-starten-und-verwenden)
+- [Konfiguration und Dateien](#konfiguration-und-dateien)
+- [Tests und Entwicklung](#tests-und-entwicklung)
+- [Bekannte Grenzen](#bekannte-grenzen)
+- [Projektstatus](#projektstatus)
+- [Urheber und Lizenz](#urheber-und-lizenz)
+
+## Überblick
+
+### Unterstützte Systeme
 
 - Linux, einschließlich Raspberry Pi
 - macOS auf Intel und Apple Silicon
 - Android innerhalb von Termux
 
+### Funktionsweise
+
 OnionCall überträgt aufgezeichnete Opus-Sprachnachrichten, keine kontinuierlichen Telefonanrufe. Beide Seiten benötigen dieselbe zufällige Gesprächs-ID beziehungsweise denselben Verbindungsschlüssel.
 
-## Wichtige Sicherheitsverbesserungen
+## Sicherheitsmerkmale
 
 - ChaCha20-Poly1305 statt ungeschützter CBC-/CTR-Verschlüsselung
 - kurzlebiger X25519-Schlüsselaustausch pro Verbindung
@@ -34,7 +63,9 @@ OnionCall überträgt aufgezeichnete Opus-Sprachnachrichten, keine kontinuierlic
 
 Die genaue Konstruktion und ihre Grenzen beschreibt [SECURITY.md](SECURITY.md).
 
-## Vor der Installation
+## Installation
+
+### Voraussetzungen
 
 Du musst zuerst zwei Dinge herunterladen beziehungsweise installieren:
 
@@ -56,38 +87,38 @@ ls pyproject.toml
 
 Eine vollständige Schritt-für-Schritt-Anleitung für Fedora, Debian/Ubuntu, Raspberry Pi OS, Arch Linux, macOS und Android/Termux steht in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**. Sie enthält auch Aktualisierung, Deinstallation und Fehlerbehebung.
 
-## Installation auf allen unterstützten Plattformen
+### Systemprogramme nach Plattform
 
 Installiere zuerst die Systemprogramme für dein Betriebssystem. **Jeder der folgenden Befehle installiert auch Tor.**
 
-### Fedora
+#### Fedora
 
 ```bash
 sudo dnf install git python3 python3-pip tor opus-tools alsa-utils unzip
 ```
 
-### Debian und Ubuntu
+#### Debian und Ubuntu
 
 ```bash
 sudo apt update
 sudo apt install git python3 python3-venv python3-pip tor opus-tools alsa-utils unzip
 ```
 
-### Raspberry Pi OS
+#### Raspberry Pi OS
 
 ```bash
 sudo apt update
 sudo apt install git python3 python3-venv python3-pip tor opus-tools alsa-utils unzip
 ```
 
-### Arch Linux und darauf basierende Distributionen
+#### Arch Linux und darauf basierende Distributionen
 
 ```bash
 sudo pacman -Syu
 sudo pacman -S --needed git python tor opus-tools alsa-utils unzip
 ```
 
-### macOS
+#### macOS
 
 Installiere zuerst [Homebrew](https://brew.sh/), falls `brew` noch nicht vorhanden ist. Danach:
 
@@ -95,7 +126,7 @@ Installiere zuerst [Homebrew](https://brew.sh/), falls `brew` noch nicht vorhand
 brew install git python tor opus-tools sox
 ```
 
-### Android mit Termux
+#### Android mit Termux
 
 Installiere **Termux und Termux:API aus derselben Quelle**, vorzugsweise über [F-Droid](https://f-droid.org/packages/com.termux/). Die veraltete Play-Store-Ausgabe von Termux wird nicht unterstützt. Öffne anschließend Termux und führe aus:
 
@@ -104,9 +135,9 @@ pkg update
 pkg install git python python-cryptography tor opus-tools sox ffmpeg termux-api
 ```
 
-Für Termux gilt anschließend der [eigene Installationsablauf](#androidtermux-installieren), weil dort `cryptography` als Systempaket verwendet wird.
+Für Termux gilt anschließend der [eigene Installationsablauf](#onioncall-unter-android-und-termux-installieren), weil dort `cryptography` als Systempaket verwendet wird.
 
-### Linux und macOS installieren
+### OnionCall unter Linux und macOS installieren
 
 Nach der Installation der passenden Systemprogramme führst du diese Befehle nacheinander aus:
 
@@ -136,7 +167,7 @@ onioncall doctor
 
 Wenn `git clone` meldet, dass der Ordner `OnionCall` bereits existiert, klone nicht erneut. Verwende `cd ~/OnionCall` und folge der [Anleitung zum Aktualisieren](docs/INSTALLATION.md#aktualisieren).
 
-### Android/Termux installieren
+### OnionCall unter Android und Termux installieren
 
 Nach der oben beschriebenen Installation der Termux-Pakete:
 
@@ -162,9 +193,11 @@ source .venv/bin/activate
 onioncall doctor
 ```
 
+### Wenn Tor fehlt
+
 Wenn `doctor` bei `tor` `[FEHLT]` anzeigt, wurde Tor nicht installiert oder ist nicht über den Suchpfad erreichbar. Installiere das Paket `tor` mit dem oben gezeigten Befehl für dein System und führe `onioncall doctor` erneut aus. Die ausführliche [Installationsanleitung](docs/INSTALLATION.md) beschreibt zusätzlich ZIP-Download, Aktualisierung, Deinstallation und weitere Fehlerfälle.
 
-## Erster sicherer Schlüsselaustausch
+## Verbindungsschlüssel sicher austauschen
 
 Person A richtet OnionCall ein:
 
@@ -184,7 +217,7 @@ onioncall set-secret --replace
 
 OnionCall fragt nach dem Schlüssel. Beim Einfügen werden absichtlich keine Zeichen angezeigt; danach Enter drücken. So erscheint der Schlüssel nicht in der Shell-History. Den Schlüssel nicht in Gruppen, Screenshots oder unverschlüsselter E-Mail weitergeben. Wer ihn besitzt, kann sich als Gesprächspartner ausgeben. Für einen neuen Gesprächskreis einen neuen Schlüssel mit `onioncall init --replace` erzeugen.
 
-## Verwendung
+## Gespräch starten und verwenden
 
 Der Empfänger startet zuerst:
 
@@ -231,7 +264,7 @@ Standardpfad ist `~/.config/onioncall`. Für Tests kann `ONIONCALL_HOME` auf ein
 
 OnionCall lehnt einen Schlüssel ab, wenn dessen Dateirechte anderen lokalen Benutzern Zugriff geben. `onioncall doctor` kontrolliert Installation und Berechtigungen.
 
-## Tests
+## Tests und Entwicklung
 
 ```bash
 python -m unittest discover -s tests -v
@@ -263,10 +296,6 @@ Beiträge sind willkommen. Lies vorher [CONTRIBUTING.md](CONTRIBUTING.md) und me
 ## Projektstatus
 
 Version 2.0.0 ist ein gehärtetes, getestetes MVP. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
-
-## Danksagung
-
-Die Grundidee wurde durch [TerminalPhone](https://gitlab.com/here_forawhile/terminalphone) angeregt. OnionCall ist eine eigenständige Neuimplementierung mit einem neuen Protokoll und ohne Kompatibilität zu TerminalPhone 1.x.
 
 ## Urheber und Lizenz
 

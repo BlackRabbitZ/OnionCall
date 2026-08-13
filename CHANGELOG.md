@@ -7,6 +7,7 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 ### Geändert
 
 - plattformneutrale README und vollständige Installationsanleitung für Fedora, Debian/Ubuntu, Raspberry Pi OS, Arch, macOS und Termux; Tor wird deutlich als Voraussetzung genannt
+- README mit Inhaltsverzeichnis, klarer Abschnittshierarchie und plattformbezogenen Sprungmarken übersichtlicher gestaltet
 - Unterstützung für aktuelle `cryptography`-Pakete bis vor Version 51, insbesondere für Termux
 
 ### Sicherheit
