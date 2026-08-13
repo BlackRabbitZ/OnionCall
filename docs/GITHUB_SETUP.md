@@ -30,7 +30,7 @@ Nach dem ersten Upload sind folgende Einstellungen sinnvoll:
 git init
 git branch -M main
 git add .
-git commit -m "Initial OnionCall v2 release"
+git commit -m "Release OnionCall 2.2 with GUI installer"
 git remote add origin https://github.com/BlackRabbitZ/OnionCall.git
 git push -u origin main
 ```

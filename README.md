@@ -1,4 +1,4 @@
-# OnionCall v2
+# OnionCall 2.2
 
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Plattformen](https://img.shields.io/badge/Plattformen-Linux%20%7C%20macOS%20%7C%20Termux-2ea44f)
@@ -15,6 +15,9 @@ OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion
 - [Überblick](#überblick)
 - [Sicherheitsmerkmale](#sicherheitsmerkmale)
 - [Installation](#installation)
+  - [Automatische Ein-Datei-Installation](#automatische-ein-datei-installation-empfohlen)
+  - [Was vorher installiert sein muss](#was-vorher-installiert-sein-muss)
+  - [Was das Setup automatisch erledigt](#was-das-setup-automatisch-erledigt)
   - [Voraussetzungen](#voraussetzungen)
   - [Systemprogramme nach Plattform](#systemprogramme-nach-plattform)
     - [Fedora](#fedora)
@@ -27,7 +30,10 @@ OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion
   - [Android und Termux installieren](#onioncall-unter-android-und-termux-installieren)
   - [Nach einem Terminalneustart](#nach-dem-nächsten-terminalstart)
   - [Hilfe bei fehlendem Tor](#wenn-tor-fehlt)
-- [Einfacher Start über das Menü](#einfacher-start-über-das-menü)
+- [OnionCall mit der GUI benutzen](#onioncall-mit-der-gui-benutzen)
+  - [Erster Start](#erster-start)
+  - [Zwei Geräte ohne Terminalbefehle verbinden](#zwei-geräte-ohne-terminalbefehle-verbinden)
+  - [Terminalmenü als Alternative](#terminalmenü-als-alternative)
 - [Zwei Geräte Schritt für Schritt einrichten](#zwei-geräte-schritt-für-schritt-einrichten)
   - [Rollen und Adressen verstehen](#rollen-und-adressen-verstehen)
   - [Installation auf beiden Geräten prüfen](#schritt-1-installation-auf-beiden-geräten-prüfen)
@@ -53,7 +59,7 @@ OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion
 
 ### Funktionsweise
 
-OnionCall überträgt aufgezeichnete Opus-Sprachnachrichten, keine kontinuierlichen Telefonanrufe. Beide Seiten benötigen dieselbe zufällige Gesprächs-ID beziehungsweise denselben Verbindungsschlüssel.
+OnionCall überträgt Text und aufgezeichnete Opus-Sprachnachrichten, keine kontinuierlichen Telefonanrufe. Beide Seiten benötigen denselben zufälligen Verbindungsschlüssel. Die grafische Oberfläche wird ausschließlich auf `127.0.0.1` bereitgestellt und im lokalen Browser geöffnet; sie ist kein öffentlicher Webdienst und überträgt keine Inhalte an einen zentralen Server.
 
 ## Sicherheitsmerkmale
 
@@ -67,11 +73,72 @@ OnionCall überträgt aufgezeichnete Opus-Sprachnachrichten, keine kontinuierlic
 - keine Geheimnisse in Kommandozeilenargumenten von OpenSSL
 - validierte Onion-v3-Adressen und bereinigte Terminalausgabe
 - keine Shell-Auswertung empfangener oder gespeicherter Werte
-- ausschließlich Python-Standardbibliothek plus das etablierte Paket `cryptography`
+- schlanke Abhängigkeiten: `cryptography` für das Protokoll und `prompt-toolkit` für eine saubere Terminaleingabe
 
 Die genaue Konstruktion und ihre Grenzen beschreibt [SECURITY.md](SECURITY.md).
 
 ## Installation
+
+### Automatische Ein-Datei-Installation (empfohlen)
+
+Für die normale Installation brauchst du nur die Datei **[`OnionCall-Setup.py`](OnionCall-Setup.py)**. Du musst das Repository nicht vorher klonen, keinen Projektordner öffnen und keine virtuelle Umgebung von Hand anlegen.
+
+> [!IMPORTANT]
+> Wenn du diesen überarbeiteten Stand aus einem Download selbst auf GitHub hochlädst, ersetze dort **zuerst den gesamten Repository-Inhalt**. Die einzelne Setup-Datei klont anschließend genau dein GitHub-Repository und verweigert eine veraltete Fassung ohne GUI.
+
+1. Lade nur `OnionCall-Setup.py` herunter.
+2. Starte die Datei mit Python 3.
+3. Im Browser erscheint die lokale Oberfläche **OnionCall Setup**.
+4. Klicke auf **Installation starten**.
+5. Bestätige unter Linux gegebenenfalls die Administratorabfrage für Tor und die Audio-Pakete.
+6. Warte, bis der Balken **100 %** und **DONE** anzeigt.
+7. Klicke auf **OnionCall öffnen**. Danach wird die eigentliche OnionCall-GUI geöffnet.
+
+Startbefehl für Linux und macOS im Ordner mit der heruntergeladenen Datei:
+
+```bash
+python3 OnionCall-Setup.py
+```
+
+Unter Android/Termux liegt eine Browserdatei häufig im Downloadordner. Erlaube Termux einmal den Dateizugriff und starte die Datei dann beispielsweise so:
+
+```bash
+termux-setup-storage
+python ~/storage/downloads/OnionCall-Setup.py
+```
+
+Der genaue Dateiname kann auf Android abweichen. Achte darauf, dass er auf `.py` und nicht auf `.py.txt` endet.
+
+> [!IMPORTANT]
+> Eine Python-Datei kann erst laufen, wenn **Python 3.10 oder neuer bereits vorhanden** ist. Das ist die einzige technische Voraussetzung für das Setup selbst. Unter Termux installierst du Python einmal mit `pkg install python`. Unter Linux ist Python 3 meistens bereits vorhanden. Unter macOS kannst du eine aktuelle Python-Version von [python.org](https://www.python.org/downloads/macos/) oder über Homebrew installieren.
+
+> [!NOTE]
+> Die GUI ist absichtlich eine lokale Browser-Oberfläche. Dadurch funktioniert dieselbe Oberfläche unter Fedora, Debian/Ubuntu, Raspberry Pi OS, Arch Linux, macOS und Android/Termux, ohne ein zusätzliches GUI-Framework zu laden. Der lokale OnionCall-Prozess muss während der Benutzung laufen; bei einem Start aus dem Terminal darf dieses Terminal deshalb nicht geschlossen werden.
+
+### Was vorher installiert sein muss
+
+| Plattform | Vor dem Start der Setup-Datei |
+| --- | --- |
+| Fedora, Debian, Ubuntu, Raspberry Pi OS, Arch | Python 3.10 oder neuer |
+| macOS | Python 3.10 oder neuer; Homebrew wird für Tor und Audio benötigt |
+| Android/Termux | Termux, Termux:API und `pkg install python`; beide Apps aus derselben vertrauenswürdigen Quelle |
+
+Das Setup installiert Homebrew nicht selbst. Fehlt Homebrew auf macOS, zeigt es einen klaren Hinweis auf die offizielle Website an. Es führt bewusst kein aus dem Internet geladenes Installationsskript mit Administratorrechten aus. Die Android-App **Termux:API** muss als App installiert und die Mikrofonberechtigung erteilt werden; das Termux-Paket `termux-api` installiert nur die passenden Befehle innerhalb von Termux.
+
+### Was das Setup automatisch erledigt
+
+- erkennt Fedora, Debian/Ubuntu/Raspberry Pi OS, Arch Linux, macOS oder Android/Termux,
+- installiert fehlendes Git, Tor, Opus und die Audio-Werkzeuge mit dem Paketmanager des Systems,
+- klont oder aktualisiert `https://github.com/BlackRabbitZ/OnionCall`,
+- erstellt eine getrennte virtuelle Python-Umgebung,
+- installiert OnionCall und seine Python-Abhängigkeiten,
+- führt Versionsprüfung und `onioncall doctor` aus,
+- erstellt unter Linux einen Anwendungsstarter, unter macOS `~/Applications/OnionCall.command` und unter Termux optional einen Termux:Widget-Starter,
+- zeigt erst dann **DONE** an.
+
+Passwörter werden nicht durch OnionCall abgefragt oder gespeichert. Eine notwendige Administratorfreigabe erfolgt über `pkexec`, `sudo` oder den Mechanismus des Betriebssystems. Die vollständige Ausgabe bleibt im Setup-Fenster sichtbar, damit Fehler nachvollziehbar sind.
+
+Die folgenden Abschnitte beschreiben die **manuelle Alternative**, falls du jeden Installationsschritt selbst ausführen oder das Setup untersuchen möchtest.
 
 ### Voraussetzungen
 
@@ -205,38 +272,47 @@ onioncall doctor
 
 Wenn `doctor` bei `tor` `[FEHLT]` anzeigt, wurde Tor nicht installiert oder ist nicht über den Suchpfad erreichbar. Installiere das Paket `tor` mit dem oben gezeigten Befehl für dein System und führe `onioncall doctor` erneut aus. Die ausführliche [Installationsanleitung](docs/INSTALLATION.md) beschreibt zusätzlich ZIP-Download, Aktualisierung, Deinstallation und weitere Fehlerfälle.
 
-## Einfacher Start über das Menü
+## OnionCall mit der GUI benutzen
 
-Nach der einmaligen Installation genügt dieser eine Befehl:
+### Erster Start
+
+Nach der automatischen Installation öffnest du OnionCall direkt mit **OnionCall öffnen**. Später verwendest du den angelegten Anwendungsstarter oder startest:
 
 ```bash
-onioncall
+onioncall-gui
 ```
 
-Ohne weiteren Unterbefehl öffnet OnionCall einen geführten Startbildschirm:
+Wenn dieser Befehl nicht im Suchpfad liegt, funktioniert der vollständige Starter unter Linux und Termux:
 
-```text
-1  Gespräch empfangen
-2  Person anrufen
-3  Verbindungsschlüssel einrichten
-4  Installation prüfen
-0  Beenden
+```bash
+~/.local/bin/onioncall-gui
 ```
 
-Du wählst nur noch eine Zahl. Der Assistent erzeugt bei Bedarf die Grundkonfiguration, erklärt den nächsten Schritt und erkennt, wenn Schlüssel und Onion-Adresse verwechselt wurden.
+Auch `onioncall` oder `onioncall gui` öffnet die grafische Oberfläche. Sie zeigt sofort den Status von Tor, Verbindungsschlüssel, Audio und Verbindung an. Tor wird beim Klick auf **Empfangen** oder **Anrufen** automatisch als eigener Prozess gestartet und beim Beenden wieder gestoppt; ein systemweiter Tor-Dienst muss nicht manuell laufen.
 
-Für die erste Verbindung:
+### Zwei Geräte ohne Terminalbefehle verbinden
 
-1. Auf Gerät A `onioncall` starten, **3** und danach **1** wählen. Die angezeigte Schlüsselzeile sicher an Gerät B übertragen.
-2. Auf Gerät B `onioncall` starten, **3** und danach **2** wählen. Den Schlüssel bei der unsichtbaren Abfrage einfügen und Enter drücken.
-3. Auf Gerät A im Hauptmenü **1** wählen. Das Terminal geöffnet lassen und die angezeigte Empfängeradresse an Gerät B senden.
-4. Auf Gerät B im Hauptmenü **2** wählen und die Empfängeradresse einmal einfügen.
-5. Bei späteren Anrufen merkt sich OnionCall auf Gerät B die zuletzt verwendete Empfängeradresse. Drücke einfach Enter, um sie erneut zu verwenden.
+1. Öffne OnionCall auf beiden Geräten.
+2. Klicke auf **Gerät A** auf **Schlüssel anzeigen** und kopiere die vollständige Zeile `onioncall:v2:…`.
+3. Übertrage diesen geheimen Schlüssel über einen bereits sicheren Kanal an Gerät B. Klicke dort auf **Schlüssel importieren**, füge ihn ein und wähle **Sicher speichern**.
+4. Klicke auf Gerät A auf **Empfangen**. Warte, bis Tor aktiv ist und unter **Meine Onion-Adresse** eine Adresse erscheint.
+5. Kopiere genau diese Empfängeradresse und sende sie an Gerät B. Unterschiedliche eigene Onion-Adressen auf beiden Geräten sind normal.
+6. Klicke auf Gerät B auf **Onion-Adresse anrufen**, füge ausschließlich die von Gerät A angezeigte Adresse ein und wähle **Verbinden**.
+7. Nach **Sichere Sitzung hergestellt** kannst du Text im Nachrichtenfeld senden oder mit **Audio 5 s** eine Sprachnachricht aufnehmen.
+8. Mit **Verbindung beenden** werden Sitzung und die zugehörige Tor-Instanz beendet. **OnionCall beenden** schließt anschließend auch den lokalen GUI-Prozess.
 
-> [!NOTE]
-> Schlüssel und Empfängeradresse müssen aus Sicherheitsgründen beim ersten Mal bewusst zwischen den Geräten übertragen werden. OnionCall sucht keine Geräte automatisch im lokalen Netzwerk und lädt keine Kontakte auf einen zentralen Server.
+> [!CAUTION]
+> Der Verbindungsschlüssel ist geheim; die Onion-Adresse ist die erreichbare Adresse des aktuellen Empfängers. Füge niemals eine `.onion`-Adresse in den Schlüsseldialog und niemals `onioncall:v2:…` in den Anrufdialog ein.
 
-Die direkten Befehle wie `onioncall listen` und `onioncall call …` bleiben für erfahrene Benutzer und Skripte verfügbar. Die folgende ausführliche Anleitung erklärt weiterhin jeden Einzelschritt.
+### Terminalmenü als Alternative
+
+Das frühere geführte Terminalmenü bleibt für Geräte ohne geeigneten Browser verfügbar:
+
+```bash
+onioncall menu
+```
+
+Es bietet Empfangen, Anrufen, Schlüsseleinrichtung und Diagnose als nummerierte Auswahl. Die direkten Befehle wie `onioncall listen` und `onioncall call …` bleiben für erfahrene Benutzer und Skripte verfügbar. Die folgende ausführliche Terminalanleitung erklärt weiterhin jeden Einzelschritt.
 
 ## Zwei Geräte Schritt für Schritt einrichten
 
@@ -421,6 +497,14 @@ a                             fünf Sekunden aufnehmen und senden
 q                             Sitzung sicher beenden
 ```
 
+Eingehende Nachrichten erscheinen sauber oberhalb der Zeile `Du >`. Wenn während des Tippens eine Nachricht ankommt, bleiben dein Prompt und der bereits geschriebene Text erhalten. Gesendete und empfangene Inhalte sind eindeutig markiert:
+
+```text
+[Gegenstelle] Hallo
+[Du] Meine Antwort
+Du >
+```
+
 Die bisherigen ausführlichen Befehle bleiben ebenfalls verfügbar:
 
 ```text
@@ -490,11 +574,12 @@ Beiträge sind willkommen. Lies vorher [CONTRIBUTING.md](CONTRIBUTING.md) und me
 - Eine Sitzung nimmt genau eine eingehende Verbindung an. Danach kann `listen` erneut gestartet werden.
 - Tor schützt nicht vor globaler zeitlicher Verkehrskorrelation.
 - Ein kompromittiertes Gerät kann Sprache und Schlüssel vor beziehungsweise nach der Verschlüsselung auslesen.
-- Die aktuelle Bedienung nutzt zeitlich begrenzte Aufnahmen (`/say 5`) statt einer globalen PTT-Taste. Das funktioniert konsistent auf allen drei Plattformen und vermeidet globale Tastatur-Hooks.
+- Die Bedienung nutzt zeitlich begrenzte Aufnahmen statt einer globalen PTT-Taste. Das funktioniert konsistent auf allen drei Plattformen und vermeidet globale Tastatur-Hooks.
+- Die grafische Oberfläche läuft im lokalen Standardbrowser. Sie ist keine signierte native App und muss zusammen mit dem lokalen OnionCall-Prozess geöffnet bleiben.
 
 ## Projektstatus
 
-Version 2.0.0 ist ein gehärtetes, getestetes MVP. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
+Version 2.2.0 ist ein gehärtetes, getestetes MVP mit lokaler Installations- und Anwendungs-GUI. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
 
 ## Urheber und Lizenz
 

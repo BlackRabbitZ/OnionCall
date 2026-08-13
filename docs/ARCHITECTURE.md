@@ -1,6 +1,6 @@
 # Architektur
 
-OnionCall besteht aus fünf klar getrennten Bereichen:
+OnionCall besteht aus klar getrennten Bereichen:
 
 | Modul | Aufgabe |
 |---|---|
@@ -10,6 +10,17 @@ OnionCall besteht aus fünf klar getrennten Bereichen:
 | `protocol.py` | begrenzte binäre Frames, ChaCha20-Poly1305 und Sequenzprüfung |
 | `audio.py` | plattformspezifische Aufnahme, Opus-Kodierung und Wiedergabe |
 | `session.py` | interaktive Befehle und sichere Terminalausgabe |
+| `gui_session.py` | threadsichere Brücke zwischen verschlüsseltem Kanal und GUI |
+| `webgui.py` | ausschließlich lokale Browser-GUI, Status und Aktionen |
+| `OnionCall-Setup.py` | eigenständige grafische Installation und Plattform-Starter |
+
+## Lokale grafische Oberfläche
+
+Die GUI enthält keinen externen Webserver und lädt keine entfernten Skripte, Schriftarten oder Stylesheets. `webgui.py` bindet einen zufälligen freien Port ausschließlich an `127.0.0.1` und öffnet diese Adresse im Standardbrowser. Schreibende Aktionen benötigen ein zufälliges Sitzungstoken. Zusätzlich werden Host und Origin geprüft, Anfragen begrenzt und eine restriktive Content Security Policy gesetzt.
+
+Browser und OnionCall-Prozess laufen auf demselben Gerät. Der lokale HTTP-Teil ersetzt nur die Darstellung; Text und Audio durchlaufen danach unverändert den authentifizierten OnionCall-Kanal und Tor. Beim Schließen des Prozesses verschwindet auch die Oberfläche.
+
+Das Setup verwendet denselben lokalen Ansatz. Systempakete werden ausschließlich über den erkannten Paketmanager installiert. Ein Administratorpasswort wird nicht von OnionCall gelesen oder gespeichert; eine Freigabe erfolgt über `pkexec`, `sudo` oder den Mechanismus des Betriebssystems.
 
 ## Verbindungsaufbau
 

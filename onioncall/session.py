@@ -4,6 +4,9 @@ import re
 import threading
 from contextlib import suppress
 
+from prompt_toolkit import PromptSession
+from prompt_toolkit.patch_stdout import patch_stdout
+
 from .audio import AudioBackend, AudioError
 from .protocol import MessageType, ProtocolError, SecureChannel
 
@@ -22,47 +25,66 @@ FULL_HELP = (
 
 
 class InteractiveSession:
-    def __init__(self, channel: SecureChannel, audio: AudioBackend):
+    def __init__(self, channel: SecureChannel, audio: AudioBackend, prompt_session: PromptSession[str] | None = None):
         self.channel = channel
         self.audio = audio
+        self.prompt_session = prompt_session or PromptSession(erase_when_done=True, reserve_space_for_menu=0)
         self.finished = threading.Event()
+        self.prompt_stop_scheduled = threading.Event()
         self.receiver = threading.Thread(target=self._receive_loop, name="onioncall-receiver", daemon=True)
 
     def run(self) -> None:
         print("Sichere Sitzung hergestellt. " + HELP, flush=True)
-        self.receiver.start()
         try:
-            while not self.finished.is_set():
-                try:
-                    line = input("onioncall> ")
-                except EOFError:
-                    line = "/quit"
-                if not line.strip():
-                    continue
-                if line in ("q", "/quit"):
-                    with suppress(OSError, ProtocolError):
-                        self.channel.send(MessageType.CLOSE, b"normal")
-                    break
-                if line == "/help":
-                    print(FULL_HELP)
-                    continue
-                if line == "a":
-                    self._send_audio("/say 5")
-                    continue
-                if line.startswith("/say"):
-                    self._send_audio(line)
-                    continue
-                if line.startswith("/text "):
-                    self._send_text(line[6:])
-                    continue
-                if line.startswith("/"):
-                    print("Unbekannter Befehl. " + FULL_HELP)
-                    continue
-                self._send_text(line)
+            # Hintergrundausgaben werden oberhalb der aktiven Eingabezeile dargestellt.
+            # prompt_toolkit zeichnet anschließend den Prompt und bereits getippten Text neu.
+            with patch_stdout():
+                self.receiver.start()
+                while not self.finished.is_set():
+                    try:
+                        line = self.prompt_session.prompt("Du > ")
+                    except EOFError:
+                        line = "/quit"
+                    if not line.strip():
+                        continue
+                    if line in ("q", "/quit"):
+                        with suppress(OSError, ProtocolError):
+                            self.channel.send(MessageType.CLOSE, b"normal")
+                        break
+                    if line == "/help":
+                        print(FULL_HELP)
+                        continue
+                    if line == "a":
+                        self._send_audio("/say 5")
+                        continue
+                    if line.startswith("/say"):
+                        self._send_audio(line)
+                        continue
+                    if line.startswith("/text "):
+                        self._send_text(line[6:])
+                        continue
+                    if line.startswith("/"):
+                        print("Unbekannter Befehl. " + FULL_HELP)
+                        continue
+                    self._send_text(line)
         finally:
             self.finished.set()
+            self._stop_prompt()
             self.channel.close()
             self.receiver.join(timeout=2)
+
+    def _stop_prompt(self) -> None:
+        app = self.prompt_session.app
+        if not app.is_running or self.prompt_stop_scheduled.is_set():
+            return
+        self.prompt_stop_scheduled.set()
+
+        def exit_active_prompt() -> None:
+            if app.is_running:
+                with suppress(Exception):
+                    app.exit(exception=EOFError)
+
+        app.loop.call_soon_threadsafe(exit_active_prompt)
 
     def _send_text(self, text: str) -> None:
         payload = text.encode("utf-8")
@@ -71,7 +93,7 @@ class InteractiveSession:
             return
         try:
             self.channel.send(MessageType.TEXT, payload)
-            print("[gesendet] " + safe_display(text))
+            print("[Du] " + safe_display(text), flush=True)
         except (OSError, ProtocolError) as exc:
             print(f"Senden fehlgeschlagen: {exc}")
             self.finished.set()
@@ -86,7 +108,7 @@ class InteractiveSession:
             print(f"Aufnahme läuft für {seconds} Sekunden …", flush=True)
             payload = self.audio.record_opus(seconds)
             self.channel.send(MessageType.AUDIO_OPUS, payload)
-            print(f"Sprachnachricht gesendet ({len(payload)} Bytes).")
+            print(f"[Du · Audio] Sprachnachricht gesendet ({len(payload)} Bytes).", flush=True)
         except (AudioError, OSError, ProtocolError) as exc:
             print(f"Audio konnte nicht gesendet werden: {exc}")
 
@@ -96,22 +118,24 @@ class InteractiveSession:
                 message = self.channel.receive()
                 if message.kind == MessageType.TEXT:
                     text = message.payload.decode("utf-8", errors="replace")
-                    print("\n[Nachricht] " + safe_display(text), flush=True)
+                    print("[Gegenstelle] " + safe_display(text), flush=True)
                 elif message.kind == MessageType.AUDIO_OPUS:
-                    print(f"\n[Audio] {len(message.payload)} Bytes – Wiedergabe …", flush=True)
+                    print(f"[Gegenstelle · Audio] {len(message.payload)} Bytes – Wiedergabe …", flush=True)
                     try:
                         self.audio.play_opus(message.payload)
                     except AudioError as exc:
                         print(f"Wiedergabe fehlgeschlagen: {exc}", flush=True)
                 elif message.kind == MessageType.CLOSE:
-                    print("\nDie Gegenstelle hat die Sitzung beendet.", flush=True)
+                    print("Die Gegenstelle hat die Sitzung beendet.", flush=True)
                     self.finished.set()
+                    self._stop_prompt()
                     return
         except EOFError:
             if not self.finished.is_set():
-                print("\nVerbindung geschlossen.", flush=True)
+                print("Verbindung geschlossen.", flush=True)
         except (OSError, ProtocolError) as exc:
             if not self.finished.is_set():
-                print(f"\nSitzung aus Sicherheitsgründen beendet: {exc}", flush=True)
+                print(f"Sitzung aus Sicherheitsgründen beendet: {exc}", flush=True)
         finally:
             self.finished.set()
+            self._stop_prompt()

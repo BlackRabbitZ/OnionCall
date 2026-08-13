@@ -1,3 +1,3 @@
-"""OnionCall v2."""
+"""OnionCall."""
 
-__version__ = "2.0.0"
+__version__ = "2.2.0"

@@ -63,9 +63,14 @@ class ConfigAndInputTests(unittest.TestCase):
             with self.subTest(arguments=arguments), self.assertRaises(SystemExit):
                 main(arguments)
 
-    def test_menu_can_be_opened_without_subcommand(self) -> None:
+    def test_terminal_menu_can_be_opened_explicitly(self) -> None:
         with mock.patch("builtins.input", return_value="0"):
+            self.assertEqual(main(["menu"]), 0)
+
+    def test_no_subcommand_opens_gui(self) -> None:
+        with mock.patch("onioncall.cli.run_gui", return_value=0) as gui:
             self.assertEqual(main([]), 0)
+        gui.assert_called_once_with()
 
     def test_menu_remembers_last_valid_address(self) -> None:
         address = "a" * 56 + ".onion"

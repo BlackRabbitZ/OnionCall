@@ -2,6 +2,7 @@ include CHANGELOG.md
 include CONTRIBUTING.md
 include LICENSE
 include NOTICE
+include OnionCall-Setup.py
 include README.md
 include SECURITY.md
 recursive-include docs *.md

@@ -4,7 +4,8 @@
 
 | Version | Sicherheitsupdates |
 |---|---|
-| 2.0.x | Ja |
+| 2.2.x | Ja |
+| 2.0.x–2.1.x | Nur kritische Fehler; Aktualisierung empfohlen |
 | älter als 2.0 | Nein; anderes und inkompatibles Protokoll |
 
 ## Schutzziele
@@ -17,6 +18,7 @@
 - Header, Typ, Sequenznummer und Länge sind Associated Data der AEAD-Verschlüsselung.
 - Text und Audio haben feste Größenlimits, bevor Daten vollständig eingelesen werden.
 - Schlüssel, Tor-Daten und temporäre Audioinhalte erhalten Rechte 0600 beziehungsweise 0700.
+- Setup- und Anwendungs-GUI binden ausschließlich an Loopback und schützen schreibende Aktionen mit einem zufälligen Sitzungstoken sowie Host-/Origin-Prüfungen.
 
 ## Nicht abgedeckt
 
@@ -25,6 +27,7 @@
 - Der Verbindungsschlüssel muss über einen bereits sicheren Kanal ausgetauscht werden.
 - Metadaten wie Zeitpunkt, Dauer und ungefähre Größe einer Übertragung können beobachtbar sein.
 - Die Implementierung wurde noch nicht unabhängig auditiert.
+- Ein kompromittierter Browser, eine schädliche Browser-Erweiterung oder ein anderer Prozess desselben lokalen Benutzerkontos liegt außerhalb des Schutzmodells.
 
 ## Protokollübersicht
 

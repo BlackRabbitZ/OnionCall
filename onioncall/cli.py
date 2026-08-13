@@ -26,6 +26,7 @@ from .crypto import AuthenticationError
 from .protocol import perform_client_handshake, perform_server_handshake
 from .session import InteractiveSession
 from .tor import TorError, TorProcess, socks5_connect, validate_onion
+from .webgui import run_gui
 
 
 def parser() -> argparse.ArgumentParser:
@@ -34,6 +35,10 @@ def parser() -> argparse.ArgumentParser:
     commands = result.add_subparsers(dest="command")
 
     commands.add_parser("menu", help="Geführten Startbildschirm öffnen")
+
+    gui = commands.add_parser("gui", help="Lokale grafische Oberfläche öffnen")
+    gui.add_argument("--port", type=int, default=0, help="Lokaler HTTP-Port (Standard: automatisch)")
+    gui.add_argument("--no-browser", action="store_true", help="Browser nicht automatisch öffnen")
 
     init = commands.add_parser("init", help="Konfiguration und zufälligen Verbindungsschlüssel erzeugen")
     init.add_argument("--replace", action="store_true", help="Vorhandenen Schlüssel ersetzen")
@@ -227,7 +232,11 @@ def _menu() -> int:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        if args.command in (None, "menu"):
+        if args.command is None:
+            return run_gui()
+        if args.command == "gui":
+            return run_gui(port=args.port, open_browser=not args.no_browser)
+        if args.command == "menu":
             return _menu()
         if args.command == "init":
             home = app_home()

@@ -43,6 +43,7 @@ class TorProcess:
         self.log_path = self.tor_dir / "tor.log"
         self.process: subprocess.Popen[bytes] | None = None
         self._log_handle = None
+        self._stop_requested = False
 
     def _write_torrc(self) -> None:
         for directory in (self.home, self.tor_dir, self.data_dir, self.hidden_dir):
@@ -62,31 +63,43 @@ class TorProcess:
         os.chmod(self.torrc, 0o600)
 
     def start(self, timeout: float = 180.0) -> str:
+        self._stop_requested = False
         binary = shutil.which(self.config.tor_binary)
         if not binary:
             raise TorError("Tor wurde nicht gefunden; `onioncall doctor` ausführen")
         self._write_torrc()
-        log_fd = os.open(self.log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        # Die Bereitschaft darf nur aus dem aktuellen Start stammen, nicht aus
+        # einer alten "Bootstrapped 100%"-Zeile einer früheren Sitzung.
+        log_fd = os.open(self.log_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         self._log_handle = os.fdopen(log_fd, "ab", buffering=0)
         os.chmod(self.log_path, 0o600)
-        self.process = subprocess.Popen(
+        process = subprocess.Popen(
             [binary, "-f", str(self.torrc)],
             stdin=subprocess.DEVNULL,
             stdout=self._log_handle,
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
+        self.process = process
         hostname = self.hidden_dir / "hostname"
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            if self.process.poll() is not None:
+            if self._stop_requested:
+                raise TorError("Tor-Start wurde abgebrochen")
+            if process.poll() is not None:
                 raise TorError(f"Tor wurde unerwartet beendet; Logdatei: {self.log_path}")
-            if hostname.exists() and self._socks_ready():
+            if hostname.exists() and self._socks_ready() and self._bootstrap_complete():
                 address = hostname.read_text(encoding="ascii").strip()
                 return validate_onion(address)
             time.sleep(0.25)
         self.stop()
         raise TorError(f"Tor war nach {int(timeout)} Sekunden nicht bereit; Logdatei: {self.log_path}")
+
+    def _bootstrap_complete(self) -> bool:
+        try:
+            return "Bootstrapped 100%" in self.log_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return False
 
     def _socks_ready(self) -> bool:
         try:
@@ -96,6 +109,7 @@ class TorProcess:
             return False
 
     def stop(self) -> None:
+        self._stop_requested = True
         process = self.process
         self.process = None
         if process is not None and process.poll() is None:

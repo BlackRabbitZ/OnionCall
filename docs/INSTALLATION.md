@@ -1,6 +1,28 @@
 # OnionCall installieren und starten
 
-Diese Anleitung führt vollständig durch Download, Installation, Einrichtung, Start, Aktualisierung und Fehlerbehebung. Führe die Befehle **nacheinander** aus.
+Diese Anleitung führt vollständig durch automatische oder manuelle Installation, Einrichtung, Start, Aktualisierung und Fehlerbehebung.
+
+## Empfohlen: eine Datei und eine grafische Installation
+
+Lade `OnionCall-Setup.py` herunter und starte sie im Downloadordner:
+
+```bash
+python3 OnionCall-Setup.py
+```
+
+Die lokale Setup-Oberfläche öffnet sich im Browser. Klicke auf **Installation starten**. Das Setup erkennt die Plattform, installiert Tor und Audio-Werkzeuge, klont das Repository, erstellt eine virtuelle Umgebung, installiert OnionCall, prüft das Ergebnis und zeigt anschließend **DONE**. Mit **OnionCall öffnen** startest du danach die Anwendungs-GUI.
+
+Nur Python 3.10 oder neuer muss bereits vorhanden sein, weil Python die Setup-Datei ausführt. Für Android/Termux sind außerdem die Apps Termux und Termux:API erforderlich:
+
+```bash
+pkg install python
+termux-setup-storage
+python ~/storage/downloads/OnionCall-Setup.py
+```
+
+Unter macOS wird Homebrew für Tor und Audio benötigt. Fehlt es, verweist das Setup auf die offizielle Homebrew-Seite, führt aber kein heruntergeladenes Administratorskript selbstständig aus.
+
+Alle Oberflächen werden ausschließlich lokal auf `127.0.0.1` bereitgestellt. Es wird kein Webkonto angelegt und kein zentraler OnionCall-Server benutzt. Die folgenden Abschnitte dokumentieren zusätzlich die vollständige **manuelle Installation**; dabei müssen die Befehle nacheinander ausgeführt werden.
 
 ## Das Wichtigste vorab
 
@@ -67,11 +89,11 @@ cd OnionCall-main
 ls pyproject.toml
 ```
 
-Falls du stattdessen das Release-Archiv `OnionCall-v2.0.0.zip` verwendest:
+Falls du stattdessen das Release-Archiv `OnionCall-v2.2.0.zip` verwendest:
 
 ```bash
 cd ~/Downloads
-unzip OnionCall-v2.0.0.zip
+unzip OnionCall-v2.2.0.zip
 cd OnionCall
 ls pyproject.toml
 ```
@@ -264,24 +286,26 @@ onioncall doctor
 
 Android kann lange laufende Prozesse im Hintergrund beenden. Deaktiviere bei Bedarf die Akkuoptimierung für Termux und Termux:API.
 
-## Einfacher Startbildschirm
+## Grafische Oberfläche starten
 
-Nach der Installation musst du die einzelnen Unterbefehle nicht auswendig lernen. Starte einfach:
+Nach der automatischen Installation verwendest du den angelegten Starter oder:
 
 ```bash
-onioncall
+onioncall-gui
 ```
 
-Das Menü bietet Empfangen, Anrufen, Schlüsseleinrichtung und Diagnose als nummerierte Auswahl an. Bei der ersten Einrichtung gehst du so vor:
+Alternativ öffnen `onioncall` und `onioncall gui` dieselbe lokale Oberfläche. Sie bietet Tor- und Audiostatus, Empfangen, Anrufen, Schlüsseleinrichtung, Textchat und zeitlich begrenzte Sprachnachrichten. Bei der ersten Einrichtung gehst du so vor:
 
-1. Gerät A: **3 → 1**, Schlüsselzeile sicher an Gerät B senden.
-2. Gerät B: **3 → 2**, Schlüsselzeile bei der unsichtbaren Abfrage einfügen.
-3. Gerät A: **1**, Empfänger laufen lassen und dessen angezeigte Onion-Adresse weitergeben.
-4. Gerät B: **2**, genau diese Empfängeradresse einfügen.
+1. Gerät A: **Schlüssel anzeigen**, Schlüsselzeile sicher an Gerät B senden.
+2. Gerät B: **Schlüssel importieren**, vollständige Zeile einfügen und sicher speichern.
+3. Gerät A: **Empfangen**, warten und dessen angezeigte Onion-Adresse weitergeben.
+4. Gerät B: **Onion-Adresse anrufen**, genau diese Empfängeradresse einfügen.
 
-OnionCall merkt sich die zuletzt angerufene Adresse. Beim nächsten Anruf kannst du im Adressfeld Enter drücken, um sie erneut zu verwenden. Eine `.onion`-Adresse wird als Schlüssel abgewiesen; eine mit `onioncall:v2:` beginnende Schlüsselzeile wird als Adresse abgewiesen.
+OnionCall merkt sich die zuletzt angerufene Adresse. Eine `.onion`-Adresse wird als Schlüssel abgewiesen; eine mit `onioncall:v2:` beginnende Schlüsselzeile wird als Adresse abgewiesen.
 
 Die einmalige bewusste Übertragung von Schlüssel und Empfängeradresse bleibt erforderlich. Dadurch braucht OnionCall weder automatische Erkennung im lokalen Netzwerk noch einen zentralen Kontaktserver.
+
+Das frühere nummerierte Terminalmenü bleibt mit `onioncall menu` verfügbar.
 
 ## Zwei Geräte Schritt für Schritt verbinden
 
@@ -408,6 +432,8 @@ a               fünf Sekunden aufnehmen und senden
 q               Sitzung beenden
 ```
 
+Eingehende Nachrichten werden oberhalb der aktiven Zeile `Du >` eingefügt. Bereits getippter, noch nicht abgesendeter Text bleibt dabei vollständig erhalten. `[Du]` kennzeichnet eigene Nachrichten und `[Gegenstelle]` empfangene Nachrichten.
+
 Alternativ funktionieren weiterhin die ausführlichen Befehle:
 
 ```text
@@ -429,13 +455,13 @@ source .venv/bin/activate
 onioncall doctor
 ```
 
-Danach `onioncall listen` oder `onioncall call …` ausführen.
-
-Einfacher ist der Startbildschirm:
+Danach kannst du die GUI öffnen:
 
 ```bash
-onioncall
+onioncall-gui
 ```
+
+Für die automatische Installation ist keine Aktivierung im Projektordner nötig; verwende einfach den angelegten Anwendungsstarter oder `~/.local/bin/onioncall-gui`.
 
 ## Aktualisieren
 

@@ -2,7 +2,27 @@
 
 Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 
-## [Unreleased]
+## [2.2.0] – 2026-08-13
+
+### Hinzugefügt
+
+- lokale grafische Oberfläche für Installation, Tor-Status, Empfangen, Anrufen, Schlüsselübertragung, Chat und Sprachnachrichten
+- eigenständige Datei `OnionCall-Setup.py`, die das Repository lädt, Systempakete installiert, eine virtuelle Umgebung erstellt, OnionCall prüft und Plattform-Starter anlegt
+- Desktop-Starter für Linux und macOS sowie optionaler Termux:Widget-Starter
+- abgesicherter lokaler Webserver mit zufälligem Sitzungstoken, Origin-/Host-Prüfung, Größenlimits und restriktiver Content Security Policy
+
+### Geändert
+
+- `onioncall` ohne Unterbefehl öffnet die grafische Oberfläche; das bisherige Terminalmenü bleibt über `onioncall menu` verfügbar
+- Tor-Start wartet nun zusätzlich auf 100 Prozent Bootstrap und einen erreichbaren lokalen SOCKS-Port; alte Bootstrap-Logs werden dabei nicht als aktueller Erfolg gewertet
+- Chat-Sitzungen besitzen für GUI und Terminal getrennte, threadsichere Darstellungen
+
+### Behoben
+
+- mehrfaches Beenden einer bereits geschlossenen Terminaleingabe löst keine nachlaufende `prompt-toolkit`-Ausnahme mehr aus
+- der Abbrechen-Knopf im Anrufdialog startet keinen Verbindungsversuch
+
+## [2.1.0] – 2026-08-13
 
 ### Geändert
 
@@ -14,11 +34,17 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 - geführten Startbildschirm für Empfangen, Anrufen, Schlüsseleinrichtung und Diagnose ergänzt; letzter Gesprächspartner wird lokal gemerkt
 - Sitzungsbedienung vereinfacht: normaler Text sendet direkt, `a` nimmt fünf Sekunden Audio auf und `q` beendet
 - Verwechslungen zwischen einer `.onion`-Adresse und einem `onioncall:v2:`-Schlüssel werden mit einer gezielten Erklärung abgewiesen
+- robuste Terminaleingabe mit `prompt-toolkit`: Eingehende Nachrichten erscheinen oberhalb des Prompts und bereits getippter Text bleibt erhalten
 - Unterstützung für aktuelle `cryptography`-Pakete bis vor Version 51, insbesondere für Termux
 
 ### Sicherheit
 
 - `onioncall set-secret` fragt den Verbindungsschlüssel ohne Argument verdeckt ab, damit er nicht in der Shell-History erscheint
+
+### Behoben
+
+- gleichzeitiges Empfangen und Tippen zerreißt nicht mehr die Chatzeile
+- einheitliche Kennzeichnung durch `[Du]`, `[Gegenstelle]`, `[Du · Audio]` und `[Gegenstelle · Audio]`
 
 ### Geplant
 
