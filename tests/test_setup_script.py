@@ -53,6 +53,12 @@ class SetupScriptTests(unittest.TestCase):
         self.assertNotIn('<script src="', html)
         self.assertNotIn('<link rel="stylesheet"', html)
         self.assertIn("Installation starten", html)
+        self.assertIn("/icon.png", html)
+
+        with urllib.request.urlopen(self.server.origin + "/icon.png", timeout=2) as response:
+            icon = response.read()
+        self.assertEqual(response.headers.get_content_type(), "image/png")
+        self.assertTrue(icon.startswith(b"\x89PNG\r\n\x1a\n"))
 
     def test_setup_actions_require_session_token(self) -> None:
         request = urllib.request.Request(self.server.origin + "/api/install", data=b"{}", method="POST")
@@ -72,7 +78,8 @@ class SetupScriptTests(unittest.TestCase):
         source = (Path(__file__).parents[1] / "OnionCall-Terminal-Setup.py").read_text(encoding="utf-8")
         self.assertNotIn("http.server", source)
         self.assertNotIn("webbrowser", source)
-        self.assertEqual(terminal_setup.MIN_REPOSITORY_VERSION, (2, 4, 0))
+        self.assertEqual(setup.MIN_REPOSITORY_VERSION, (2, 5, 0))
+        self.assertEqual(terminal_setup.MIN_REPOSITORY_VERSION, (2, 5, 0))
 
 
 if __name__ == "__main__":

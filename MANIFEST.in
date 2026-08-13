@@ -7,3 +7,4 @@ include OnionCall-Terminal-Setup.py
 include README.md
 include SECURITY.md
 recursive-include docs *.md
+recursive-include onioncall/assets *.png

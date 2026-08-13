@@ -1,4 +1,8 @@
-# BRZ – OnionCall 2.4
+# BRZ – OnionCall 2.5
+
+<p align="center">
+  <img src="onioncall/assets/onioncall-icon.png" alt="BlackRabbitZ OnionChat – Hase in einer violetten Onion-Sprechblase" width="180">
+</p>
 
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Plattformen](https://img.shields.io/badge/Plattformen-Linux%20%7C%20macOS%20%7C%20Termux-2ea44f)
@@ -15,8 +19,9 @@ BRZ – OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für T
 - [Überblick](#überblick)
 - [Sicherheitsmerkmale](#sicherheitsmerkmale)
 - [Installation](#installation)
-  - [Ein-Datei-Terminal-Installation](#ein-datei-terminal-installation-ohne-web-gui)
-  - [Automatische Ein-Datei-Installation](#automatische-ein-datei-installation-empfohlen)
+  - [Welche Setup-Datei soll ich nehmen?](#welche-setup-datei-soll-ich-nehmen)
+  - [Grafische Setup-Datei](#setup-datei-1-grafische-installation-empfohlen)
+  - [Terminal-Setup-Datei](#setup-datei-2-installation-vollständig-im-terminal)
   - [Was vorher installiert sein muss](#was-vorher-installiert-sein-muss)
   - [Was das Setup automatisch erledigt](#was-das-setup-automatisch-erledigt)
   - [Voraussetzungen](#voraussetzungen)
@@ -81,24 +86,82 @@ Die genaue Konstruktion und ihre Grenzen beschreibt [SECURITY.md](SECURITY.md).
 
 ## Installation
 
-### Ein-Datei-Terminal-Installation ohne Web-GUI
+### Welche Setup-Datei soll ich nehmen?
 
-Wenn du keine Browser-Oberfläche möchtest, lade nur **[`OnionCall-Terminal-Setup.py`](OnionCall-Terminal-Setup.py)** herunter. Die gesamte Installation läuft sichtbar im Terminal:
+Du brauchst für die automatische Installation nur **eine** der beiden Setup-Dateien. Beide installieren dieselbe sichere Anwendung und laden den vollständigen Quellcode aus diesem Repository. Der Unterschied ist ausschließlich die Bedienoberfläche:
+
+| Datei | Installation | Anwendung danach | Geeignet für |
+| --- | --- | --- | --- |
+| [`OnionCall-Setup.py`](OnionCall-Setup.py) | lokale grafische Oberfläche im Browser | grafische OnionCall-Oberfläche | Desktop, Smartphone und möglichst wenig Terminaleingaben |
+| [`OnionCall-Terminal-Setup.py`](OnionCall-Terminal-Setup.py) | farbiges nummeriertes Terminalmenü | farbige Terminal-Oberfläche | Systeme ohne geeigneten Browser, SSH und reine Terminal-Nutzung |
+
+> [!IMPORTANT]
+> Die beiden Dateien sind **Alternativen**. Du musst nicht beide ausführen. Python 3.10 oder neuer muss vorher vorhanden sein, weil Python die gewählte Setup-Datei startet.
+
+### Setup-Datei 1: Grafische Installation (empfohlen)
+
+Die Datei [`OnionCall-Setup.py`](OnionCall-Setup.py) startet einen ausschließlich lokal erreichbaren Installationsbildschirm im Browser. Sie richtet anschließend die grafische OnionCall-Anwendung ein.
+
+#### Schritt für Schritt
+
+1. Lade `OnionCall-Setup.py` herunter.
+2. Öffne ein Terminal im Ordner mit der heruntergeladenen Datei.
+3. Starte sie:
+
+   ```bash
+   python3 OnionCall-Setup.py
+   ```
+
+4. Im Browser erscheint **BRZ – OnionCall Setup**. Klicke auf **Installation starten**.
+5. Bestätige unter Linux gegebenenfalls die Administratorfreigabe für Tor und die Audio-Pakete.
+6. Warte, bis der Fortschritt **100 %** und **DONE** anzeigt.
+7. Klicke auf **BRZ – OnionCall öffnen**.
+
+Das grafische Setup erledigt automatisch:
+
+- Erkennung des Betriebssystems,
+- Installation fehlender Systemprogramme wie Git, Tor, Opus und Audio-Werkzeuge,
+- Klonen oder Aktualisieren dieses Repositorys,
+- Erstellen einer getrennten Python-Umgebung,
+- Installation und Diagnose von OnionCall,
+- Erstellen des Programmstarters mit dem BlackRabbitZ-OnionChat-Icon.
+
+Der Browser dient nur als lokale Bedienoberfläche auf `127.0.0.1`. Das Setup wird nicht ins Internet gestellt und liest oder speichert dein Administratorpasswort nicht.
+
+Unter Android/Termux:
+
+```bash
+pkg install python
+termux-setup-storage
+python ~/storage/downloads/OnionCall-Setup.py
+```
+
+Der genaue Downloadpfad kann abweichen. Der Dateiname muss auf `.py` und nicht auf `.py.txt` enden.
+
+### Setup-Datei 2: Installation vollständig im Terminal
+
+Wenn du keine Browser-Oberfläche möchtest, lade nur [`OnionCall-Terminal-Setup.py`](OnionCall-Terminal-Setup.py) herunter und starte sie im Downloadordner:
 
 ```bash
 python3 OnionCall-Terminal-Setup.py
 ```
 
-Wähle anschließend:
+Wähle anschließend **1**:
 
 ```text
-1  OnionCall vollständig installieren oder aktualisieren
-2  Installiertes OnionCall Terminal starten
+1  BRZ – OnionCall vollständig installieren oder aktualisieren
+2  Installiertes BRZ – OnionCall Terminal starten
 3  Installationspfad anzeigen
 0  Beenden
 ```
 
-Das Terminal-Setup erkennt die Plattform, installiert fehlendes Tor und Audio-Werkzeuge, klont das Repository, erstellt die Python-Umgebung, prüft die Installation und zeigt am Ende **DONE**. Danach kann es direkt die Terminal-Oberfläche öffnen. Es startet keinen lokalen Webserver und öffnet keinen Browser.
+Das Terminal-Setup führt dieselben Installationsschritte wie das grafische Setup aus, zeigt Befehle und Fortschritt aber direkt im Terminal. Nach **DONE** kannst du mit **2** die installierte Terminal-Oberfläche starten. Später startest du sie jederzeit mit:
+
+```bash
+onioncall-terminal
+```
+
+Das Terminal-Setup startet keinen lokalen Webserver und öffnet keinen Browser. Auf Linux erhält der Programmstarter ebenfalls das BlackRabbitZ-OnionChat-Icon; innerhalb des Terminals wird weiterhin das farbige Textlogo **BRZ – OnionCall** verwendet.
 
 Unter Android/Termux:
 
@@ -110,41 +173,8 @@ python ~/storage/downloads/OnionCall-Terminal-Setup.py
 
 Auch hier müssen Python 3.10 oder neuer sowie unter macOS Homebrew bereits verfügbar sein. Termux und Termux:API müssen auf Android als Apps aus derselben vertrauenswürdigen Quelle installiert sein.
 
-### Automatische Ein-Datei-Installation (empfohlen)
-
-Für die normale Installation brauchst du nur die Datei **[`OnionCall-Setup.py`](OnionCall-Setup.py)**. Du musst das Repository nicht vorher klonen, keinen Projektordner öffnen und keine virtuelle Umgebung von Hand anlegen.
-
 > [!IMPORTANT]
-> Wenn du diesen überarbeiteten Stand aus einem Download selbst auf GitHub hochlädst, ersetze dort **zuerst den gesamten Repository-Inhalt**. Die einzelne Setup-Datei klont anschließend genau dein GitHub-Repository und verweigert eine veraltete Fassung ohne GUI.
-
-1. Lade nur `OnionCall-Setup.py` herunter.
-2. Starte die Datei mit Python 3.
-3. Im Browser erscheint die lokale Oberfläche **OnionCall Setup**.
-4. Klicke auf **Installation starten**.
-5. Bestätige unter Linux gegebenenfalls die Administratorabfrage für Tor und die Audio-Pakete.
-6. Warte, bis der Balken **100 %** und **DONE** anzeigt.
-7. Klicke auf **OnionCall öffnen**. Danach wird die eigentliche OnionCall-GUI geöffnet.
-
-Startbefehl für Linux und macOS im Ordner mit der heruntergeladenen Datei:
-
-```bash
-python3 OnionCall-Setup.py
-```
-
-Unter Android/Termux liegt eine Browserdatei häufig im Downloadordner. Erlaube Termux einmal den Dateizugriff und starte die Datei dann beispielsweise so:
-
-```bash
-termux-setup-storage
-python ~/storage/downloads/OnionCall-Setup.py
-```
-
-Der genaue Dateiname kann auf Android abweichen. Achte darauf, dass er auf `.py` und nicht auf `.py.txt` endet.
-
-> [!IMPORTANT]
-> Eine Python-Datei kann erst laufen, wenn **Python 3.10 oder neuer bereits vorhanden** ist. Das ist die einzige technische Voraussetzung für das Setup selbst. Unter Termux installierst du Python einmal mit `pkg install python`. Unter Linux ist Python 3 meistens bereits vorhanden. Unter macOS kannst du eine aktuelle Python-Version von [python.org](https://www.python.org/downloads/macos/) oder über Homebrew installieren.
-
-> [!NOTE]
-> Die GUI ist absichtlich eine lokale Browser-Oberfläche. Dadurch funktioniert dieselbe Oberfläche unter Fedora, Debian/Ubuntu, Raspberry Pi OS, Arch Linux, macOS und Android/Termux, ohne ein zusätzliches GUI-Framework zu laden. Der lokale OnionCall-Prozess muss während der Benutzung laufen; bei einem Start aus dem Terminal darf dieses Terminal deshalb nicht geschlossen werden.
+> Wenn du diesen überarbeiteten Stand selbst auf GitHub hochlädst, ersetze dort zuerst den gesamten alten Repository-Inhalt. Beide Setup-Dateien klonen dein GitHub-Repository und verlangen mindestens BRZ – OnionCall 2.5 mit dem neuen Icon.
 
 ### Was vorher installiert sein muss
 
@@ -655,7 +685,7 @@ Beiträge sind willkommen. Lies vorher [CONTRIBUTING.md](CONTRIBUTING.md) und me
 
 ## Projektstatus
 
-Version 2.4.0 ist ein gehärtetes, getestetes MVP mit farbiger Terminal- und lokaler Browser-Oberfläche. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
+Version 2.5.0 ist ein gehärtetes, getestetes MVP mit BlackRabbitZ-OnionChat-Icon, farbiger Terminal- und lokaler Browser-Oberfläche. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
 
 ## Urheber und Lizenz
 

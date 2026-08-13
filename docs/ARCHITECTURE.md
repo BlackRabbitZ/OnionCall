@@ -11,6 +11,7 @@ OnionCall besteht aus klar getrennten Bereichen:
 | `audio.py` | plattformspezifische Aufnahme, Opus-Kodierung und Wiedergabe |
 | `session.py` | interaktive Befehle und sichere Terminalausgabe |
 | `terminal_style.py` | TTY-sichere Farben, `NO_COLOR` und Darstellung der Marke BRZ – OnionCall |
+| `assets/onioncall-icon.png` | BlackRabbitZ-OnionChat-Icon für GUI, README und Programmstarter |
 | `gui_session.py` | threadsichere Brücke zwischen verschlüsseltem Kanal und GUI |
 | `webgui.py` | ausschließlich lokale Browser-GUI, Status und Aktionen |
 | `OnionCall-Setup.py` | eigenständige grafische Installation und Plattform-Starter |

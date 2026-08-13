@@ -18,7 +18,7 @@ from pathlib import Path
 
 REPOSITORY = "https://github.com/BlackRabbitZ/OnionCall.git"
 MIN_PYTHON = (3, 10)
-MIN_REPOSITORY_VERSION = (2, 4, 0)
+MIN_REPOSITORY_VERSION = (2, 5, 0)
 
 RESET = "\x1b[0m"
 BOLD = "1"
@@ -218,7 +218,7 @@ def clone_or_update(root: Path) -> Path:
     if not (source / "pyproject.toml").is_file() or not (source / "onioncall" / "cli.py").is_file():
         raise InstallerError("Das geladene Repository ist kein vollständiges OnionCall-Projekt")
     if repository_version(source) < MIN_REPOSITORY_VERSION:
-        raise InstallerError("Das GitHub-Repository ist älter als BRZ – OnionCall 2.4.0 und muss aktualisiert werden")
+        raise InstallerError("Das GitHub-Repository ist älter als BRZ – OnionCall 2.5.0 und muss aktualisiert werden")
     return source
 
 
@@ -266,11 +266,12 @@ def create_launchers(source: Path, venv: Path) -> None:
         print(paint(f"[OK] macOS-Starter: {command}", GREEN))
     else:
         desktop = Path.home() / ".local" / "share" / "applications" / "onioncall-terminal.desktop"
+        icon = source / "onioncall" / "assets" / "onioncall-icon.png"
         private_write(
             desktop,
             "[Desktop Entry]\nType=Application\nName=BRZ - OnionCall Terminal\n"
             "Comment=Sicherer Text und Sprache über Tor\n"
-            f"Exec={launcher}\nTerminal=true\nCategories=Network;Chat;Security;\n",
+            f"Exec={launcher}\nIcon={icon}\nTerminal=true\nCategories=Network;Chat;Security;\n",
         )
         desktop.chmod(0o644)
         print(paint(f"[OK] Anwendungsstarter: {desktop}", GREEN))

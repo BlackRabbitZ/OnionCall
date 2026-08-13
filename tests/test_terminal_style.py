@@ -20,7 +20,7 @@ class TerminalStyleTests(unittest.TestCase):
         stream = FakeStream(True)
         with mock.patch.dict(os.environ, {}, clear=True):
             self.assertIn("\x1b[", paint("Text", BOLD, CYAN, stream=stream))
-            self.assertIn("BRZ", brand("2.4.0", stream=stream))
+            self.assertIn("BRZ", brand("2.5.0", stream=stream))
             self.assertIn("\x1b[", status(True, stream=stream))
 
     def test_redirected_output_has_no_ansi_codes(self) -> None:

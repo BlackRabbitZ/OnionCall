@@ -6,7 +6,7 @@ import unittest
 import urllib.error
 import urllib.request
 
-from onioncall.webgui import HTML, GuiController, GuiHttpServer
+from onioncall.webgui import HTML, ICON_PNG, GuiController, GuiHttpServer
 
 
 class WebGuiTests(unittest.TestCase):
@@ -41,6 +41,14 @@ class WebGuiTests(unittest.TestCase):
         self.assertNotIn("https://", HTML)
         self.assertNotIn("AES-256-CBC", HTML)
         self.assertIn("BRZ – OnionCall", HTML)
+        self.assertIn("/icon.png", HTML)
+        self.assertTrue(ICON_PNG.startswith(b"\x89PNG\r\n\x1a\n"))
+
+    def test_gui_serves_application_icon(self) -> None:
+        with urllib.request.urlopen(self.server.origin + "/icon.png", timeout=2) as response:
+            icon = response.read()
+        self.assertEqual(response.headers.get_content_type(), "image/png")
+        self.assertEqual(icon, ICON_PNG)
 
     def test_post_requires_random_session_token(self) -> None:
         status, body = self.request("/api/disconnect")

@@ -2,6 +2,18 @@
 
 Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
 
+## [2.5.0] – 2026-08-13
+
+### Hinzugefügt
+
+- neues BlackRabbitZ-OnionChat-Icon mit schwarzem Hasen in einer violetten Onion-Sprechblase
+- Icon in Anwendungs-GUI, grafischem Setup, Browser-Favicon, README und Linux-Programmstartern
+- eindeutige Vergleichstabelle und getrennte Schritt-für-Schritt-Erklärung für beide Ein-Datei-Installer
+
+### Geändert
+
+- beide Setup-Dateien verlangen mindestens Repository-Version 2.5.0, damit das Icon zuverlässig vorhanden ist
+
 ## [2.4.0] – 2026-08-13
 
 ### Hinzugefügt

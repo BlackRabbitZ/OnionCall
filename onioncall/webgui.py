@@ -13,6 +13,7 @@ from collections import deque
 from contextlib import suppress
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.resources import files
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__
@@ -34,6 +35,7 @@ from .protocol import perform_client_handshake, perform_server_handshake
 from .tor import TorError, TorProcess, socks5_connect, validate_onion
 
 MAX_REQUEST = 64 * 1024
+ICON_PNG = files("onioncall").joinpath("assets/onioncall-icon.png").read_bytes()
 
 
 class GuiController:
@@ -329,11 +331,12 @@ HTML = r"""<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/png" href="/icon.png">
   <title>BRZ – OnionCall</title>
   <style nonce="__NONCE__">
     :root{--bg:#090b10;--panel:#11151d;--line:#293141;--text:#eef2f7;--muted:#8e9bad;--purple:#b896ff;--cyan:#66e3d2;--green:#76e39a;--red:#ff7b84;--amber:#ffc66d}
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#1b1830 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,sans-serif;min-height:100vh}
-    button,input{font:inherit}.app{max-width:1180px;margin:auto;padding:22px}.top{display:flex;align-items:center;gap:15px;margin-bottom:18px}.logo{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--purple),#7058ff);display:grid;place-items:center;font-weight:900;color:#0a0711;font-size:25px;box-shadow:0 10px 35px #8d6cff44}.title h1{font-size:23px;margin:0}.title p{margin:1px 0 0;color:var(--muted)}.version{margin-left:auto;color:var(--muted);font:13px ui-monospace,monospace}
+    button,input{font:inherit}.app{max-width:1180px;margin:auto;padding:22px}.top{display:flex;align-items:center;gap:15px;margin-bottom:18px}.logo{width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 10px 16px #8d6cff44)}.title h1{font-size:23px;margin:0}.title p{margin:1px 0 0;color:var(--muted)}.version{margin-left:auto;color:var(--muted);font:13px ui-monospace,monospace}
     .statusbar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}.pill{background:#0e1219;border:1px solid var(--line);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:9px}.dot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 12px currentColor}.dot.ok{background:var(--green)}.dot.busy{background:var(--amber)}.pill small{display:block;color:var(--muted)}
     .grid{display:grid;grid-template-columns:330px 1fr;gap:16px}.panel{background:var(--panel);background:color-mix(in srgb,var(--panel) 94%,transparent);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 40px #0005}.side{padding:16px}.side h2,.chathead h2{font-size:15px;margin:0 0 12px;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}.side h2.spaced{margin-top:20px}.actions{display:grid;gap:9px}.btn{border:1px solid #374154;background:#191f2a;color:var(--text);padding:12px 13px;border-radius:11px;text-align:left;cursor:pointer;transition:.15s}.btn:hover{border-color:var(--purple);transform:translateY(-1px)}.btn.primary{background:linear-gradient(135deg,#7f62e9,#6042c9);border-color:#a48cff}.btn.danger{color:#ffb2b7}.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:9px}.address{margin:14px 0;padding:12px;background:#0b0e14;border:1px solid var(--line);border-radius:11px;word-break:break-all;font:12px/1.45 ui-monospace,monospace;color:var(--cyan)}.address.empty{color:var(--muted)}
     .chat{min-height:665px;display:flex;flex-direction:column;overflow:hidden}.chathead{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}.chathead h2{margin:0}.state{margin-left:auto;color:var(--muted)}.messages{flex:1;padding:18px;overflow:auto;min-height:390px;max-height:560px;display:flex;flex-direction:column;gap:10px}.msg{max-width:78%;border:1px solid var(--line);border-radius:14px;padding:10px 12px;background:#141923;white-space:pre-wrap;word-break:break-word}.msg.self{align-self:flex-end;background:#28204a;border-color:#55448a}.msg.peer{align-self:flex-start;background:#102322;border-color:#24534d}.msg.system,.msg.error,.msg.address{align-self:center;max-width:92%;font-size:13px;color:var(--muted);background:transparent;border-style:dashed;text-align:center}.msg.error{color:#ff9da4;border-color:#76373c}.msg.address{color:var(--cyan);font-family:ui-monospace,monospace}.meta{font-size:11px;color:var(--muted);margin-bottom:3px}.composer{border-top:1px solid var(--line);padding:13px;display:grid;grid-template-columns:1fr auto auto;gap:9px}.composer input{min-width:0;background:#0b0e14;border:1px solid var(--line);border-radius:11px;color:var(--text);padding:12px;outline:none}.composer input:focus{border-color:var(--purple)}.iconbtn{border:1px solid var(--line);border-radius:11px;background:#191f2a;color:var(--text);padding:0 16px;cursor:pointer}.iconbtn.send{background:var(--purple);color:#0b0712;font-weight:800}.hint{padding:0 16px 13px;color:var(--muted);font-size:12px}
@@ -343,7 +346,7 @@ HTML = r"""<!doctype html>
 </head>
 <body>
 <main class="app">
-  <header class="top"><div class="logo">O</div><div class="title"><h1>BRZ – OnionCall</h1><p>Sicherer Text und Sprache über Tor</p></div><div class="version" id="version"></div></header>
+  <header class="top"><img class="logo" src="/icon.png" alt="BlackRabbitZ OnionChat"><div class="title"><h1>BRZ – OnionCall</h1><p>Sicherer Text und Sprache über Tor</p></div><div class="version" id="version"></div></header>
   <section class="statusbar">
     <div class="pill"><span class="dot" id="torDot"></span><div><b>Tor</b><small id="torText">Prüfen …</small></div></div>
     <div class="pill"><span class="dot" id="keyDot"></span><div><b>Schlüssel</b><small id="keyText">Prüfen …</small></div></div>
@@ -475,8 +478,8 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
                 after = 0
             self._json(self.server.controller.status(after))
             return
-        if parsed.path == "/favicon.ico":
-            self._send(b"", "image/x-icon", HTTPStatus.NO_CONTENT)
+        if parsed.path in {"/icon.png", "/favicon.ico"}:
+            self._send(ICON_PNG, "image/png")
             return
         self._json({"error": "Nicht gefunden"}, HTTPStatus.NOT_FOUND)
 

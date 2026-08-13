@@ -109,11 +109,11 @@ cd OnionCall-main
 ls pyproject.toml
 ```
 
-Falls du stattdessen das Release-Archiv `OnionCall-v2.4.0.zip` verwendest:
+Falls du stattdessen das Release-Archiv `OnionCall-v2.5.0.zip` verwendest:
 
 ```bash
 cd ~/Downloads
-unzip OnionCall-v2.4.0.zip
+unzip OnionCall-v2.5.0.zip
 cd OnionCall
 ls pyproject.toml
 ```

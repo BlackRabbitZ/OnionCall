@@ -30,7 +30,7 @@ Nach dem ersten Upload sind folgende Einstellungen sinnvoll:
 git init
 git branch -M main
 git add .
-git commit -m "Release BRZ - OnionCall 2.4 with colored terminal"
+git commit -m "Release BRZ - OnionCall 2.5 with application icon"
 git remote add origin https://github.com/BlackRabbitZ/OnionCall.git
 git push -u origin main
 ```
