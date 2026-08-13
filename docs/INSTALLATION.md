@@ -9,6 +9,9 @@ OnionCall besteht aus zwei Teilen:
 1. **Systemprogramme** für Python, Tor und Audio. Diese werden mit `dnf`, `apt`, `pacman`, Homebrew oder `pkg` installiert.
 2. **Der OnionCall-Quellcode** aus diesem GitHub-Repository. Dieser muss heruntergeladen werden.
 
+> [!IMPORTANT]
+> **Tor ist eine zwingende Voraussetzung und muss vor OnionCall installiert werden.** OnionCall enthält Tor nicht. Beim Start eines Gesprächs startet OnionCall selbst einen getrennten Tor-Prozess, deshalb musst du den systemweiten Tor-Dienst nicht mit `systemctl` oder `brew services` starten. Nach der Einrichtung muss `onioncall doctor` für `tor` den Status `[OK]` melden.
+
 Der Befehl
 
 ```bash
@@ -272,6 +275,14 @@ onioncall init
 onioncall show-secret --confirm
 ```
 
+Meldet `onioncall init`, dass `~/.config/onioncall/conversation.key` bereits existiert, ist auf diesem Gerät schon ein Schlüssel eingerichtet. Er wird absichtlich nicht überschrieben. Zeige den vorhandenen Schlüssel mit diesem einzelnen Befehl erneut an:
+
+```bash
+onioncall show-secret --confirm
+```
+
+Führe mehrere Befehle immer in getrennten Zeilen aus. Schreibe beispielsweise nicht `onioncall doctor~onioncall show-secret --confirm`: Die Shell behandelt `doctor~onioncall` dann als einen ungültigen Befehlsnamen. Das Zeichen `~` steht in Pfaden für dein Home-Verzeichnis, ist aber kein Trennzeichen zwischen Befehlen.
+
 Übermittle die angezeigte Zeichenfolge `onioncall:v2:…` über einen bereits sicheren Kanal an Gerät B. Keine Gruppen, öffentlichen Chats oder unverschlüsselte E-Mail verwenden.
 
 Auf Gerät B:
@@ -385,6 +396,23 @@ Auf Debian/Ubuntu fehlt `python3-venv`:
 ```bash
 sudo apt install python3-venv
 ```
+
+### `Schlüssel existiert bereits` oder `invalid choice: 'doctor~onioncall'`
+
+Ein vorhandener Schlüssel wird aus Sicherheitsgründen nicht durch `onioncall init` überschrieben. Zeige ihn so an:
+
+```bash
+onioncall show-secret --confirm
+```
+
+Der Fehler `invalid choice: 'doctor~onioncall'` bedeutet, dass zwei Befehle versehentlich zusammengefügt wurden. Führe sie einzeln aus:
+
+```bash
+onioncall doctor
+onioncall show-secret --confirm
+```
+
+Veröffentliche die angezeigte Zeichenfolge nicht. Nutze `onioncall init --replace` nur, wenn du bewusst einen neuen Gesprächsschlüssel erzeugen und den bisherigen ungültig machen möchtest.
 
 ### `doctor` meldet fehlende Programme
 

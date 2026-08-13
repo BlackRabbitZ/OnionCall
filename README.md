@@ -42,6 +42,9 @@ Du musst zuerst zwei Dinge herunterladen beziehungsweise installieren:
 2. Dieses OnionCall-Repository mit Git oder als ZIP-Datei.
 
 > [!IMPORTANT]
+> **Tor muss installiert sein, bevor OnionCall benutzt wird.** OnionCall liefert Tor nicht mit. Bei `onioncall listen` und `onioncall call` startet OnionCall selbst einen getrennten Tor-Prozess; ein systemweiter Tor-Dienst muss dafür nicht manuell gestartet werden. Prüfe die Installation mit `onioncall doctor`: Bei `tor` muss `[OK]` stehen.
+
+> [!IMPORTANT]
 > `python -m pip install .` installiert das Projekt aus dem **aktuellen Ordner**. Der Punkt `.` bedeutet „dieser Ordner“. Wechsle deshalb zuerst mit `cd OnionCall` in das heruntergeladene Repository. Dort muss die Datei `pyproject.toml` liegen.
 
 Kontrolle vor der Installation:
@@ -51,40 +54,107 @@ pwd
 ls pyproject.toml
 ```
 
-Eine vollständige Schritt-für-Schritt-Anleitung für Fedora, Debian/Ubuntu, Arch Linux, macOS und Android/Termux steht in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**. Sie enthält auch Aktualisierung, Deinstallation und Fehlerbehebung.
+Eine vollständige Schritt-für-Schritt-Anleitung für Fedora, Debian/Ubuntu, Raspberry Pi OS, Arch Linux, macOS und Android/Termux steht in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**. Sie enthält auch Aktualisierung, Deinstallation und Fehlerbehebung.
 
-## Schnellstart unter Fedora
+## Installation auf allen unterstützten Plattformen
 
-Die folgenden Befehle nacheinander ausführen:
+Installiere zuerst die Systemprogramme für dein Betriebssystem. **Jeder der folgenden Befehle installiert auch Tor.**
+
+### Fedora
 
 ```bash
-# 1. Benötigte Systemprogramme installieren
-sudo dnf install git python3 python3-pip tor opus-tools alsa-utils
+sudo dnf install git python3 python3-pip tor opus-tools alsa-utils unzip
+```
 
-# 2. Repository in das Home-Verzeichnis herunterladen
+### Debian und Ubuntu
+
+```bash
+sudo apt update
+sudo apt install git python3 python3-venv python3-pip tor opus-tools alsa-utils unzip
+```
+
+### Raspberry Pi OS
+
+```bash
+sudo apt update
+sudo apt install git python3 python3-venv python3-pip tor opus-tools alsa-utils unzip
+```
+
+### Arch Linux und darauf basierende Distributionen
+
+```bash
+sudo pacman -Syu
+sudo pacman -S --needed git python tor opus-tools alsa-utils unzip
+```
+
+### macOS
+
+Installiere zuerst [Homebrew](https://brew.sh/), falls `brew` noch nicht vorhanden ist. Danach:
+
+```bash
+brew install git python tor opus-tools sox
+```
+
+### Android mit Termux
+
+Installiere **Termux und Termux:API aus derselben Quelle**, vorzugsweise über [F-Droid](https://f-droid.org/packages/com.termux/). Die veraltete Play-Store-Ausgabe von Termux wird nicht unterstützt. Öffne anschließend Termux und führe aus:
+
+```bash
+pkg update
+pkg install git python python-cryptography tor opus-tools sox ffmpeg termux-api
+```
+
+Für Termux gilt anschließend der [eigene Installationsablauf](#androidtermux-installieren), weil dort `cryptography` als Systempaket verwendet wird.
+
+### Linux und macOS installieren
+
+Nach der Installation der passenden Systemprogramme führst du diese Befehle nacheinander aus:
+
+```bash
+# Repository herunterladen
 cd ~
 git clone https://github.com/BlackRabbitZ/OnionCall.git
 
-# 3. In den heruntergeladenen Projektordner wechseln
+# In den heruntergeladenen Projektordner wechseln
 cd OnionCall
 
-# 4. Prüfen, ob dies wirklich der Projektordner ist
+# Prüfen, ob dies wirklich der Projektordner ist
 ls pyproject.toml
 
-# 5. Abgeschlossene Python-Umgebung erstellen und aktivieren
+# Abgeschlossene Python-Umgebung erstellen und aktivieren
 python3 -m venv .venv
 source .venv/bin/activate
 
-# 6. OnionCall aus genau diesem Ordner installieren
+# OnionCall aus genau diesem Ordner installieren
 python -m pip install --upgrade pip
 python -m pip install .
 
-# 7. Einrichten und alle Abhängigkeiten prüfen
+# Einrichten und alle Abhängigkeiten prüfen
 onioncall init
 onioncall doctor
 ```
 
-Wenn das Terminal später neu geöffnet wird, muss OnionCall nicht erneut installiert werden. Aktiviere nur wieder die Umgebung:
+Wenn `git clone` meldet, dass der Ordner `OnionCall` bereits existiert, klone nicht erneut. Verwende `cd ~/OnionCall` und folge der [Anleitung zum Aktualisieren](docs/INSTALLATION.md#aktualisieren).
+
+### Android/Termux installieren
+
+Nach der oben beschriebenen Installation der Termux-Pakete:
+
+```bash
+cd ~
+git clone https://github.com/BlackRabbitZ/OnionCall.git
+cd ~/OnionCall
+ls pyproject.toml
+python -m venv --system-site-packages .venv
+source .venv/bin/activate
+python -m pip install .
+onioncall init
+onioncall doctor
+```
+
+### Nach dem nächsten Terminalstart
+
+OnionCall muss nicht erneut installiert werden. Aktiviere nur wieder die vorhandene Umgebung:
 
 ```bash
 cd ~/OnionCall
@@ -92,17 +162,7 @@ source .venv/bin/activate
 onioncall doctor
 ```
 
-## Andere Plattformen – benötigte Downloads
-
-| Plattform | Vorher installieren |
-| --- | --- |
-| Fedora | `git python3 python3-pip tor opus-tools alsa-utils` |
-| Debian/Ubuntu/Raspberry Pi OS | `git python3 python3-venv python3-pip tor opus-tools alsa-utils` |
-| Arch Linux | `git python tor opus-tools alsa-utils` |
-| macOS | Homebrew, danach `git python tor opus-tools sox` |
-| Android/Termux | Termux und Termux:API aus derselben Quelle; danach `git python python-cryptography tor opus-tools sox ffmpeg termux-api` |
-
-Die passenden Paketmanager-Befehle und sämtliche folgenden Schritte stehen in der [Installationsanleitung](docs/INSTALLATION.md).
+Wenn `doctor` bei `tor` `[FEHLT]` anzeigt, wurde Tor nicht installiert oder ist nicht über den Suchpfad erreichbar. Installiere das Paket `tor` mit dem oben gezeigten Befehl für dein System und führe `onioncall doctor` erneut aus. Die ausführliche [Installationsanleitung](docs/INSTALLATION.md) beschreibt zusätzlich ZIP-Download, Aktualisierung, Deinstallation und weitere Fehlerfälle.
 
 ## Erster sicherer Schlüsselaustausch
 
@@ -112,6 +172,8 @@ Person A richtet OnionCall ein:
 onioncall init
 onioncall show-secret --confirm
 ```
+
+Falls `onioncall init` meldet, dass `conversation.key` bereits existiert, ist schon ein Schlüssel eingerichtet. Das ist kein Defekt. Zeige ihn einfach mit `onioncall show-secret --confirm` an. Gib jeden Befehl einzeln ein; `~` ist kein Trennzeichen zwischen Befehlen.
 
 Die Ausgabe beginnt mit `onioncall:v2:`. Person A übermittelt sie **über einen bereits sicheren Kanal** an Person B. Person B importiert sie über eine verdeckte Eingabe:
 
