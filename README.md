@@ -27,6 +27,7 @@ OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion
   - [Android und Termux installieren](#onioncall-unter-android-und-termux-installieren)
   - [Nach einem Terminalneustart](#nach-dem-nächsten-terminalstart)
   - [Hilfe bei fehlendem Tor](#wenn-tor-fehlt)
+- [Einfacher Start über das Menü](#einfacher-start-über-das-menü)
 - [Zwei Geräte Schritt für Schritt einrichten](#zwei-geräte-schritt-für-schritt-einrichten)
   - [Rollen und Adressen verstehen](#rollen-und-adressen-verstehen)
   - [Installation auf beiden Geräten prüfen](#schritt-1-installation-auf-beiden-geräten-prüfen)
@@ -204,6 +205,39 @@ onioncall doctor
 
 Wenn `doctor` bei `tor` `[FEHLT]` anzeigt, wurde Tor nicht installiert oder ist nicht über den Suchpfad erreichbar. Installiere das Paket `tor` mit dem oben gezeigten Befehl für dein System und führe `onioncall doctor` erneut aus. Die ausführliche [Installationsanleitung](docs/INSTALLATION.md) beschreibt zusätzlich ZIP-Download, Aktualisierung, Deinstallation und weitere Fehlerfälle.
 
+## Einfacher Start über das Menü
+
+Nach der einmaligen Installation genügt dieser eine Befehl:
+
+```bash
+onioncall
+```
+
+Ohne weiteren Unterbefehl öffnet OnionCall einen geführten Startbildschirm:
+
+```text
+1  Gespräch empfangen
+2  Person anrufen
+3  Verbindungsschlüssel einrichten
+4  Installation prüfen
+0  Beenden
+```
+
+Du wählst nur noch eine Zahl. Der Assistent erzeugt bei Bedarf die Grundkonfiguration, erklärt den nächsten Schritt und erkennt, wenn Schlüssel und Onion-Adresse verwechselt wurden.
+
+Für die erste Verbindung:
+
+1. Auf Gerät A `onioncall` starten, **3** und danach **1** wählen. Die angezeigte Schlüsselzeile sicher an Gerät B übertragen.
+2. Auf Gerät B `onioncall` starten, **3** und danach **2** wählen. Den Schlüssel bei der unsichtbaren Abfrage einfügen und Enter drücken.
+3. Auf Gerät A im Hauptmenü **1** wählen. Das Terminal geöffnet lassen und die angezeigte Empfängeradresse an Gerät B senden.
+4. Auf Gerät B im Hauptmenü **2** wählen und die Empfängeradresse einmal einfügen.
+5. Bei späteren Anrufen merkt sich OnionCall auf Gerät B die zuletzt verwendete Empfängeradresse. Drücke einfach Enter, um sie erneut zu verwenden.
+
+> [!NOTE]
+> Schlüssel und Empfängeradresse müssen aus Sicherheitsgründen beim ersten Mal bewusst zwischen den Geräten übertragen werden. OnionCall sucht keine Geräte automatisch im lokalen Netzwerk und lädt keine Kontakte auf einen zentralen Server.
+
+Die direkten Befehle wie `onioncall listen` und `onioncall call …` bleiben für erfahrene Benutzer und Skripte verfügbar. Die folgende ausführliche Anleitung erklärt weiterhin jeden Einzelschritt.
+
 ## Zwei Geräte Schritt für Schritt einrichten
 
 Für ein Gespräch brauchst du zwei Geräte mit installiertem OnionCall. Im folgenden Beispiel ist **Gerät A der Empfänger** und **Gerät B der Anrufer**.
@@ -237,6 +271,10 @@ Fahre erst fort, wenn `doctor` Tor, Audio, Datenverzeichnis und Verbindungsschl�
 
 ### Schritt 2: Gemeinsamen Verbindungsschlüssel einrichten
 
+Beide Geräte müssen exakt denselben Verbindungsschlüssel verwenden. Übertrage ihn so:
+
+#### 2.1 Schlüssel auf Gerät A anzeigen
+
 Auf **Gerät A** einen Schlüssel erzeugen und anzeigen:
 
 ```bash
@@ -246,19 +284,87 @@ onioncall show-secret --confirm
 
 Falls `onioncall init` meldet, dass `conversation.key` bereits existiert, ist schon ein Schlüssel eingerichtet. Das ist kein Defekt. Zeige ihn einfach mit `onioncall show-secret --confirm` an. Gib jeden Befehl einzeln ein; `~` ist kein Trennzeichen zwischen Befehlen.
 
-Die Ausgabe beginnt mit `onioncall:v2:`. Übermittle ausschließlich diese Zeichenfolge **über einen bereits sicheren Kanal** an Gerät B.
+Die Ausgabe ist eine einzelne lange Zeile, beispielsweise:
+
+```text
+onioncall:v2:HIER-STEHT-DER-LANGE-GEHEIME-SCHLUESSEL
+```
+
+Kopiere die Zeile:
+
+- vollständig vom Anfang `onioncall:v2:` bis zum letzten Zeichen,
+- ohne den Shell-Prompt wie `(.venv) [user@computer OnionCall]$`,
+- ohne Anführungszeichen, Zeilenumbruch oder zusätzliche Leerzeichen,
+- ohne andere Terminalausgaben davor oder dahinter.
+
+Übermittle ausschließlich diese vollständige Zeichenfolge **über einen bereits sicheren, vertrauenswürdigen Kanal** an Gerät B.
+
+#### 2.2 Schlüssel auf Gerät B importieren
 
 Auf **Gerät B** den Schlüssel über die verdeckte Eingabe importieren:
 
 ```bash
-onioncall init
 onioncall set-secret --replace
 ```
 
-Beim Einfügen werden absichtlich keine Zeichen angezeigt. Drücke danach Enter. So erscheint der Schlüssel nicht in der Shell-History.
+Gib diesen Befehl **genau einmal** ein und drücke Enter. Wenn links im Prompt bereits `(.venv)` steht, ist die virtuelle Umgebung schon aktiv; `source .venv/bin/activate` muss dann nicht erneut ausgeführt werden.
+
+So sieht der Ablauf im Terminal aus:
+
+```text
+(.venv) [user@computer OnionCall]$ onioncall set-secret --replace
+Verbindungsschlüssel (Eingabe bleibt unsichtbar):
+Verbindungsschlüssel sicher gespeichert.
+```
+
+Zwischen der zweiten und dritten Zeile fügst du den Schlüssel ein und drückst Enter. Der eingefügte Schlüssel wird nicht dargestellt.
+
+OnionCall zeigt danach:
+
+```text
+Verbindungsschlüssel (Eingabe bleibt unsichtbar):
+```
+
+Füge jetzt die vollständige Zeile `onioncall:v2:…` ein und drücke **einmal Enter**. Beim Einfügen werden absichtlich weder Buchstaben noch Punkte oder Sternchen angezeigt. Das ist normal und schützt den Schlüssel vor Blicken auf den Bildschirm.
+
+Bei erfolgreichem Import erscheint:
+
+```text
+Verbindungsschlüssel sicher gespeichert.
+```
+
+Falls stattdessen eine Fehlermeldung erscheint, führe den Import erneut aus und achte darauf, ausschließlich die vollständige Schlüsselzeile einzufügen.
 
 > [!WARNING]
-> Kopiere nicht den gesamten Ordner `~/.config/onioncall` zwischen den Geräten. Importiere nur die Zeichenfolge `onioncall:v2:…` mit `onioncall set-secret --replace`. Veröffentliche den Schlüssel nicht in Gruppen, Screenshots oder unverschlüsselter E-Mail. Wer ihn besitzt, kann sich als Gesprächspartner ausgeben.
+> Kopiere nicht den gesamten Ordner `~/.config/onioncall` zwischen den Geräten. Importiere nur die Zeichenfolge `onioncall:v2:…` mit der verdeckten Abfrage von `onioncall set-secret --replace`. Veröffentliche den Schlüssel nicht in Gruppen, Screenshots oder unverschlüsselter E-Mail. Wer ihn besitzt, kann sich als Gesprächspartner ausgeben.
+
+Gib den Schlüssel nicht direkt hinter dem Befehl ein. Die aktuelle Version weist zusätzliche Argumente ab:
+
+```bash
+# Unsicher – nicht verwenden:
+onioncall set-secret onioncall:v2:GEHEIMER-SCHLUESSEL --replace
+```
+
+Diese Schreibweise könnte den Schlüssel in der Shell-History und in Prozessinformationen hinterlassen. Verwende immer nur `onioncall set-secret --replace` und füge den Schlüssel anschließend in die unsichtbare Eingabe ein.
+
+Wiederhole auch nicht versehentlich den Befehl in derselben Zeile:
+
+```bash
+# Falsch – der Befehl steht doppelt:
+onioncall set-secret --replace onioncall set-secret --replace
+```
+
+Das führt zu `onioncall: error: unrecognized arguments: set-secret`. Drücke in diesem Fall nicht weiter, sondern gib in einer neuen Zeile nur einmal `onioncall set-secret --replace` ein.
+
+#### 2.3 Import prüfen
+
+Prüfe auf Gerät B, ob der Schlüssel vorhanden ist und sichere Dateirechte besitzt:
+
+```bash
+onioncall doctor
+```
+
+Die Zeile zum Verbindungsschlüssel muss `[OK]` anzeigen. `doctor` zeigt den geheimen Schlüssel selbst nicht an.
 
 Für einen neuen Gesprächskreis erzeugst du mit `onioncall init --replace` bewusst einen neuen Schlüssel und importierst ihn anschließend auf allen beteiligten Geräten.
 
@@ -307,7 +413,15 @@ Ein falscher Verbindungsschlüssel verursacht keinen SOCKS-Code 4. Er wird erst 
 
 ### Schritt 6: Nachrichten und Sprache verwenden
 
-Nach erfolgreicher gegenseitiger Authentifizierung können beide Seiten folgende Befehle verwenden:
+Nach erfolgreicher gegenseitiger Authentifizierung ist die Bedienung vereinfacht:
+
+```text
+Hallo                         Text direkt senden
+a                             fünf Sekunden aufnehmen und senden
+q                             Sitzung sicher beenden
+```
+
+Die bisherigen ausführlichen Befehle bleiben ebenfalls verfügbar:
 
 ```text
 /text Hallo                 Text senden
@@ -340,13 +454,14 @@ Standardpfad ist `~/.config/onioncall`. Für Tests kann `ONIONCALL_HOME` auf ein
 ```json
 {
   "listen_port": 17777,
+  "last_address": null,
   "max_audio_seconds": 120,
   "socks_port": 19050,
   "tor_binary": "tor"
 }
 ```
 
-OnionCall lehnt einen Schlüssel ab, wenn dessen Dateirechte anderen lokalen Benutzern Zugriff geben. `onioncall doctor` kontrolliert Installation und Berechtigungen.
+`last_address` speichert nur die zuletzt angerufene Onion-Adresse, damit sie im Menü nicht erneut eingefügt werden muss. Der Verbindungsschlüssel wird getrennt gespeichert. OnionCall lehnt einen Schlüssel ab, wenn dessen Dateirechte anderen lokalen Benutzern Zugriff geben. `onioncall doctor` kontrolliert Installation und Berechtigungen.
 
 ## Tests und Entwicklung
 

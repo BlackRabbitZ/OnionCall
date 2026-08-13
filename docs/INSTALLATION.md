@@ -264,6 +264,25 @@ onioncall doctor
 
 Android kann lange laufende Prozesse im Hintergrund beenden. Deaktiviere bei Bedarf die Akkuoptimierung für Termux und Termux:API.
 
+## Einfacher Startbildschirm
+
+Nach der Installation musst du die einzelnen Unterbefehle nicht auswendig lernen. Starte einfach:
+
+```bash
+onioncall
+```
+
+Das Menü bietet Empfangen, Anrufen, Schlüsseleinrichtung und Diagnose als nummerierte Auswahl an. Bei der ersten Einrichtung gehst du so vor:
+
+1. Gerät A: **3 → 1**, Schlüsselzeile sicher an Gerät B senden.
+2. Gerät B: **3 → 2**, Schlüsselzeile bei der unsichtbaren Abfrage einfügen.
+3. Gerät A: **1**, Empfänger laufen lassen und dessen angezeigte Onion-Adresse weitergeben.
+4. Gerät B: **2**, genau diese Empfängeradresse einfügen.
+
+OnionCall merkt sich die zuletzt angerufene Adresse. Beim nächsten Anruf kannst du im Adressfeld Enter drücken, um sie erneut zu verwenden. Eine `.onion`-Adresse wird als Schlüssel abgewiesen; eine mit `onioncall:v2:` beginnende Schlüsselzeile wird als Adresse abgewiesen.
+
+Die einmalige bewusste Übertragung von Schlüssel und Empfängeradresse bleibt erforderlich. Dadurch braucht OnionCall weder automatische Erkennung im lokalen Netzwerk noch einen zentralen Kontaktserver.
+
 ## Zwei Geräte Schritt für Schritt verbinden
 
 Im folgenden Beispiel empfängt **Gerät A** den Anruf und **Gerät B** ruft an. Jedes Gerät besitzt eine eigene Onion-Adresse. Unterschiedliche Adressen sind normal. Der Anrufer verwendet immer exakt die Adresse, die der Empfänger bei `onioncall listen` anzeigt.
@@ -284,6 +303,8 @@ Bei einer ZIP-Installation kann der Ordner `~/OnionCall-main` heißen. Fahre ers
 
 Beide Geräte müssen denselben zufälligen Verbindungsschlüssel besitzen.
 
+#### 2.1 Auf Gerät A anzeigen
+
 Auf Gerät A:
 
 ```bash
@@ -299,16 +320,57 @@ onioncall show-secret --confirm
 
 Führe mehrere Befehle immer in getrennten Zeilen aus. Schreibe beispielsweise nicht `onioncall doctor~onioncall show-secret --confirm`: Die Shell behandelt `doctor~onioncall` dann als einen ungültigen Befehlsnamen. Das Zeichen `~` steht in Pfaden für dein Home-Verzeichnis, ist aber kein Trennzeichen zwischen Befehlen.
 
-Übermittle die angezeigte Zeichenfolge `onioncall:v2:…` über einen bereits sicheren Kanal an Gerät B. Keine Gruppen, öffentlichen Chats oder unverschlüsselte E-Mail verwenden.
+Die Ausgabe besteht aus einer langen Zeile, die mit `onioncall:v2:` beginnt. Kopiere sie vollständig vom Präfix bis zum letzten Zeichen. Kopiere weder den Shell-Prompt noch Anführungszeichen, Zeilenumbrüche, Leerzeichen oder andere Terminalausgaben mit.
+
+Übermittle ausschließlich diese vollständige Zeichenfolge über einen bereits sicheren, vertrauenswürdigen Kanal an Gerät B. Keine Gruppen, öffentlichen Chats oder unverschlüsselte E-Mail verwenden.
+
+#### 2.2 Auf Gerät B verdeckt importieren
 
 Auf Gerät B:
 
 ```bash
-onioncall init
 onioncall set-secret --replace
 ```
 
-OnionCall fragt jetzt verdeckt nach dem Schlüssel. Beim Einfügen werden absichtlich keine Zeichen angezeigt. Drücke danach Enter. So steht der Schlüssel nicht als Befehl in der Shell-History.
+Gib den Befehl genau einmal ein. Steht links im Prompt bereits `(.venv)`, ist die virtuelle Umgebung aktiv und muss nicht erneut aktiviert werden. Der vollständige Ablauf sieht so aus:
+
+```text
+(.venv) [user@computer OnionCall]$ onioncall set-secret --replace
+Verbindungsschlüssel (Eingabe bleibt unsichtbar):
+Verbindungsschlüssel sicher gespeichert.
+```
+
+Zwischen der zweiten und dritten Zeile wird der Schlüssel eingefügt und mit Enter bestätigt; er bleibt dabei vollständig unsichtbar.
+
+OnionCall fragt jetzt verdeckt nach dem Schlüssel:
+
+```text
+Verbindungsschlüssel (Eingabe bleibt unsichtbar):
+```
+
+Füge die vollständige Zeile `onioncall:v2:…` ein und drücke einmal Enter. Beim Einfügen erscheinen absichtlich keine Zeichen, Punkte oder Sternchen. Bei Erfolg steht anschließend:
+
+```text
+Verbindungsschlüssel sicher gespeichert.
+```
+
+Gib den Schlüssel nicht direkt als Argument hinter `onioncall set-secret` ein. Dadurch könnte er in der Shell-History oder in Prozessinformationen sichtbar werden; die aktuelle Version weist zusätzliche Argumente deshalb ab. Verwende ausschließlich den Befehl `onioncall set-secret --replace` und danach die unsichtbare Eingabe.
+
+Schreibe den Befehl nicht doppelt in dieselbe Zeile. Diese Eingabe ist falsch:
+
+```bash
+onioncall set-secret --replace onioncall set-secret --replace
+```
+
+Sie verursacht `onioncall: error: unrecognized arguments: set-secret`. Beginne dann eine neue Zeile und gib den Befehl genau einmal ein.
+
+Prüfe den Import auf Gerät B:
+
+```bash
+onioncall doctor
+```
+
+Der Verbindungsschlüssel muss mit `[OK]` gemeldet werden. Sein geheimer Inhalt wird dabei nicht angezeigt.
 
 Kopiere niemals den gesamten Ordner `~/.config/onioncall` auf das andere Gerät. Importiere nur die Zeichenfolge `onioncall:v2:…`. Der Schlüssel muss auf beiden Geräten gleich sein; ihre Onion-Adressen sollen dagegen voneinander verschieden sein.
 
@@ -338,7 +400,15 @@ Ersetze den vollständigen Platzhalter durch die Adresse, die gerade auf Gerät 
 
 ### 6. Gespräch verwenden
 
-In der Sitzung:
+In der Sitzung reicht die vereinfachte Eingabe:
+
+```text
+Hallo           Text direkt senden
+a               fünf Sekunden aufnehmen und senden
+q               Sitzung beenden
+```
+
+Alternativ funktionieren weiterhin die ausführlichen Befehle:
 
 ```text
 /text Hallo     Text senden
@@ -360,6 +430,12 @@ onioncall doctor
 ```
 
 Danach `onioncall listen` oder `onioncall call …` ausführen.
+
+Einfacher ist der Startbildschirm:
+
+```bash
+onioncall
+```
 
 ## Aktualisieren
 
@@ -443,6 +519,23 @@ onioncall show-secret --confirm
 ```
 
 Veröffentliche die angezeigte Zeichenfolge nicht. Nutze `onioncall init --replace` nur, wenn du bewusst einen neuen Gesprächsschlüssel erzeugen und den bisherigen ungültig machen möchtest.
+
+### `unrecognized arguments: set-secret`
+
+Ursache: `onioncall set-secret --replace` wurde zweimal in dieselbe Befehlszeile eingefügt, zum Beispiel:
+
+```bash
+# Falsch:
+onioncall set-secret --replace onioncall set-secret --replace
+```
+
+Gib den Befehl in einer neuen Zeile genau einmal ein:
+
+```bash
+onioncall set-secret --replace
+```
+
+Füge erst bei der anschließenden unsichtbaren Abfrage ausschließlich die vollständige Schlüsselzeile `onioncall:v2:…` ein und drücke Enter. Wenn der Prompt schon mit `(.venv)` beginnt, ist die virtuelle Umgebung bereits aktiv.
 
 ### `doctor` meldet fehlende Programme
 

@@ -14,7 +14,11 @@ def safe_display(text: str) -> str:
     return CONTROL_CHARS.sub("�", text.replace("\x1b", "�"))
 
 
-HELP = "Befehle: /say SEKUNDEN, /text NACHRICHT, /help, /quit"
+HELP = "Text direkt eingeben | a = 5 Sekunden Audio | q = Ende | /help = alle Befehle"
+FULL_HELP = (
+    "Kurz: Text direkt eingeben, a = 5 Sekunden Audio, q = Ende. "
+    "Erweitert: /say SEKUNDEN, /text NACHRICHT, /quit"
+)
 
 
 class InteractiveSession:
@@ -35,12 +39,15 @@ class InteractiveSession:
                     line = "/quit"
                 if not line.strip():
                     continue
-                if line == "/quit":
+                if line in ("q", "/quit"):
                     with suppress(OSError, ProtocolError):
                         self.channel.send(MessageType.CLOSE, b"normal")
                     break
                 if line == "/help":
-                    print(HELP)
+                    print(FULL_HELP)
+                    continue
+                if line == "a":
+                    self._send_audio("/say 5")
                     continue
                 if line.startswith("/say"):
                     self._send_audio(line)
@@ -48,7 +55,10 @@ class InteractiveSession:
                 if line.startswith("/text "):
                     self._send_text(line[6:])
                     continue
-                print("Unbekannter Befehl. " + HELP)
+                if line.startswith("/"):
+                    print("Unbekannter Befehl. " + FULL_HELP)
+                    continue
+                self._send_text(line)
         finally:
             self.finished.set()
             self.channel.close()

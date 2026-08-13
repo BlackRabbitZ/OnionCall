@@ -20,6 +20,11 @@ class TorError(RuntimeError):
 
 def validate_onion(address: str) -> str:
     address = address.strip().lower()
+    if address.startswith("onioncall:v2:"):
+        raise TorError(
+            "Das ist ein Verbindungsschlüssel, keine Onion-Adresse. "
+            "Zum Anrufen die beim Empfänger angezeigte Adresse mit `.onion` verwenden."
+        )
     address = address.removeprefix("http://").removeprefix("https://")
     address = address.rstrip("/")
     if not ONION_RE.fullmatch(address):

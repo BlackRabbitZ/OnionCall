@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import secrets
 import stat
 import tempfile
@@ -50,6 +51,7 @@ class Config:
     socks_port: int = 19050
     tor_binary: str = "tor"
     max_audio_seconds: int = 120
+    last_address: str | None = None
 
     def validate(self) -> None:
         for name, value in (("listen_port", self.listen_port), ("socks_port", self.socks_port)):
@@ -59,6 +61,10 @@ class Config:
             raise ConfigError("Listen- und SOCKS-Port müssen verschieden sein")
         if not 1 <= self.max_audio_seconds <= 300:
             raise ConfigError("max_audio_seconds muss zwischen 1 und 300 liegen")
+        if self.last_address is not None and (
+            not isinstance(self.last_address, str) or not re.fullmatch(r"[a-z2-7]{56}\.onion", self.last_address)
+        ):
+            raise ConfigError("last_address muss eine gültige Onion-v3-Adresse sein")
 
 
 def config_path(home: Path | None = None) -> Path:
@@ -99,6 +105,11 @@ def generate_secret(home: Path | None = None, *, replace: bool = False) -> bytes
 
 def parse_secret(value: str) -> bytes:
     value = value.strip()
+    if value.lower().endswith(".onion"):
+        raise ConfigError(
+            "Das ist eine Onion-Adresse, kein Verbindungsschlüssel. "
+            "Hier die mit `onioncall:v2:` beginnende Schlüsselzeile einfügen."
+        )
     if value.startswith("onioncall:v2:"):
         value = value.removeprefix("onioncall:v2:")
     try:

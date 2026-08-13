@@ -9,6 +9,11 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 - plattformneutrale README und vollständige Installationsanleitung für Fedora, Debian/Ubuntu, Raspberry Pi OS, Arch, macOS und Termux; Tor wird deutlich als Voraussetzung genannt
 - README mit Inhaltsverzeichnis, klarer Abschnittshierarchie und plattformbezogenen Sprungmarken übersichtlicher gestaltet
 - ausführliche Zwei-Geräte-Anleitung ergänzt: Rollen, Schlüsselaustausch, richtige Empfängeradresse, Rollenwechsel und Fehlerhilfe für SOCKS-Code 4
+- Schlüsselübertragung präzisiert: vollständiger Kopierbereich, unsichtbare Eingabe, Erfolgskontrolle und Warnung vor unsicheren Kommandozeilenargumenten
+- doppelten `set-secret`-Befehl und den Fehler `unrecognized arguments` dokumentiert; Schlüsselwerte als Kommandozeilenargument technisch deaktiviert
+- geführten Startbildschirm für Empfangen, Anrufen, Schlüsseleinrichtung und Diagnose ergänzt; letzter Gesprächspartner wird lokal gemerkt
+- Sitzungsbedienung vereinfacht: normaler Text sendet direkt, `a` nimmt fünf Sekunden Audio auf und `q` beendet
+- Verwechslungen zwischen einer `.onion`-Adresse und einem `onioncall:v2:`-Schlüssel werden mit einer gezielten Erklärung abgewiesen
 - Unterstützung für aktuelle `cryptography`-Pakete bis vor Version 51, insbesondere für Termux
 
 ### Sicherheit

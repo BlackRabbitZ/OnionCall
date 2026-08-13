@@ -7,8 +7,16 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from onioncall.cli import main
-from onioncall.config import ConfigError, generate_secret, load_secret, secret_path, secret_token
+from onioncall.cli import _address_for_menu, main
+from onioncall.config import (
+    ConfigError,
+    generate_secret,
+    load_config,
+    load_secret,
+    parse_secret,
+    secret_path,
+    secret_token,
+)
 from onioncall.session import safe_display
 from onioncall.tor import TorError, validate_onion
 
@@ -46,6 +54,33 @@ class ConfigAndInputTests(unittest.TestCase):
             prompt.assert_called_once()
             self.assertEqual(load_secret(Path(directory)), replacement)
 
+    def test_set_secret_rejects_command_line_values(self) -> None:
+        token = secret_token(b"r" * 32)
+        for arguments in (
+            ["set-secret", token, "--replace"],
+            ["set-secret", "--replace", "onioncall", "set-secret", "--replace"],
+        ):
+            with self.subTest(arguments=arguments), self.assertRaises(SystemExit):
+                main(arguments)
+
+    def test_menu_can_be_opened_without_subcommand(self) -> None:
+        with mock.patch("builtins.input", return_value="0"):
+            self.assertEqual(main([]), 0)
+
+    def test_menu_remembers_last_valid_address(self) -> None:
+        address = "a" * 56 + ".onion"
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            mock.patch.dict(os.environ, {"ONIONCALL_HOME": directory}),
+            mock.patch("builtins.input", return_value=address),
+        ):
+            self.assertEqual(_address_for_menu(), address)
+            self.assertEqual(load_config(Path(directory)).last_address, address)
+
+    def test_onion_address_is_rejected_as_secret(self) -> None:
+        with self.assertRaisesRegex(ConfigError, "Onion-Adresse"):
+            parse_secret("a" * 56 + ".onion")
+
     def test_terminal_escape_characters_are_removed(self) -> None:
         output = safe_display("hallo\x1b]52;c;evil\x07")
         self.assertNotIn("\x1b", output)
@@ -54,6 +89,8 @@ class ConfigAndInputTests(unittest.TestCase):
     def test_only_onion_v3_addresses_are_accepted(self) -> None:
         address = "a" * 56 + ".onion"
         self.assertEqual(validate_onion("https://" + address + "/"), address)
+        with self.assertRaisesRegex(TorError, "Verbindungsschlüssel"):
+            validate_onion(secret_token(b"r" * 32))
         for invalid in ("example.com", "a.onion", "$(touch /tmp/bad).onion"):
             with self.assertRaises(TorError):
                 validate_onion(invalid)
