@@ -323,7 +323,7 @@ class GuiController:
         self.disconnect()
 
 
-HTML = r'''<!doctype html>
+HTML = r"""<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8">
@@ -411,7 +411,7 @@ $('refreshBtn').onclick=()=>{lastEvent=Math.max(0,lastEvent-1);toast('Status wir
 $('shutdownBtn').onclick=()=>{if(!confirm('OnionCall und die aktive Verbindung beenden?'))return;api('/api/shutdown').then(()=>{$('detail').textContent='OnionCall wurde beendet. Dieses Fenster kann geschlossen werden.'}).catch(e=>toast(e.message))};
 poll();
 </script>
-</body></html>'''
+</body></html>"""
 
 
 class GuiHttpServer(ThreadingHTTPServer):

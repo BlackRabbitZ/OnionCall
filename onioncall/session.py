@@ -19,8 +19,7 @@ def safe_display(text: str) -> str:
 
 HELP = "Text direkt eingeben | a = 5 Sekunden Audio | q = Ende | /help = alle Befehle"
 FULL_HELP = (
-    "Kurz: Text direkt eingeben, a = 5 Sekunden Audio, q = Ende. "
-    "Erweitert: /say SEKUNDEN, /text NACHRICHT, /quit"
+    "Kurz: Text direkt eingeben, a = 5 Sekunden Audio, q = Ende. Erweitert: /say SEKUNDEN, /text NACHRICHT, /quit"
 )
 
 
