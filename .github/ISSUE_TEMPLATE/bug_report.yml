@@ -1,0 +1,60 @@
+name: Fehlerbericht
+description: Reproduzierbaren funktionalen Fehler melden
+title: "[Bug]: "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für die Meldung. **Keine echten Verbindungsschlüssel, Onion-Adressen, Logs mit privaten Daten oder Sicherheitslücken hier veröffentlichen.** Sicherheitsprobleme bitte privat entsprechend SECURITY.md melden.
+  - type: input
+    id: version
+    attributes:
+      label: OnionCall-Version
+      placeholder: 2.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Plattform
+      options:
+        - Linux
+        - macOS Intel
+        - macOS Apple Silicon
+        - Android/Termux
+        - Andere
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduktionsschritte
+      description: Ausschließlich künstliche Testdaten verwenden.
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Tatsächliches Verhalten
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Datenschutzprüfung
+      options:
+        - label: Ich habe alle Schlüssel, Onion-Adressen und privaten Daten entfernt.
+          required: true
+        - label: Dies ist keine Sicherheitslücke.
+          required: true

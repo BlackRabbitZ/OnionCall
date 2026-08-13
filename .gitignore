@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environments and builds
+.venv/
+venv/
+build/
+dist/
+*.whl
+build-env-*/
+build-requirements-*.txt
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# OnionCall runtime data and secrets
+.onioncall/
+.smoke-home/
+conversation.key
+config.json
+tor_data/
+onion_service/
+*.onion
+*.key
+*.pem
+*.log

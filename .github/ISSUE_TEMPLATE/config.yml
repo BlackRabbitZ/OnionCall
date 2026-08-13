@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Sicherheitslücke privat melden
+    url: https://docs.github.com/code-security/security-advisories/working-with-repository-security-advisories/privately-reporting-a-security-vulnerability
+    about: Keine Sicherheitsdetails, Schlüssel oder Onion-Adressen in öffentliche Issues schreiben.

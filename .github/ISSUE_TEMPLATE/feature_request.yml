@@ -1,0 +1,36 @@
+name: Funktionswunsch
+description: Eine begrenzte, sicherheitsbewusste Verbesserung vorschlagen
+title: "[Feature]: "
+labels: [enhancement, triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem soll gelöst werden?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Vorgeschlagene Lösung
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Sicherheits- und Datenschutzwirkung
+      description: Neue Metadaten, Berechtigungen, Abhängigkeiten oder Protokolländerungen nennen.
+    validations:
+      required: true
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Betroffene Plattformen
+      multiple: true
+      options:
+        - Linux
+        - macOS
+        - Android/Termux
+        - Alle Plattformen
+    validations:
+      required: true

@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "onioncall"
+version = "2.0.0"
+description = "Authenticated push-to-talk voice and text over Tor onion services"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{name = "BlackRabbitZ"}]
+keywords = ["tor", "onion-service", "push-to-talk", "privacy", "cryptography"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Operating System :: Android",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Communications",
+    "Topic :: Security :: Cryptography",
+]
+dependencies = ["cryptography>=42,<48"]
+
+[project.optional-dependencies]
+dev = ["build>=1.2,<2", "ruff>=0.12,<1"]
+
+[project.scripts]
+onioncall = "onioncall.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/BlackRabbitZ/OnionCall"
+Repository = "https://github.com/BlackRabbitZ/OnionCall"
+Issues = "https://github.com/BlackRabbitZ/OnionCall/issues"
+
+[tool.setuptools.packages.find]
+include = ["onioncall*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
