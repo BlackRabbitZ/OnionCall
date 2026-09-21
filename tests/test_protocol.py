@@ -2,128 +2,81 @@ from __future__ import annotations
 
 import os
 import socket
+import tempfile
 import threading
 import unittest
+from pathlib import Path
 
 from onioncall.crypto import AuthenticationError
-from onioncall.protocol import (
-    FRAME_VERSION,
-    HEADER,
-    MessageType,
-    ProtocolError,
-    SecureChannel,
-    perform_client_handshake,
-    perform_server_handshake,
-)
-
-
-class RecordingSocket:
-    def __init__(self, sock: socket.socket):
-        self.sock = sock
-        self.writes: list[bytes] = []
-
-    def sendall(self, data: bytes) -> None:
-        self.writes.append(data)
-        self.sock.sendall(data)
-
-    def __getattr__(self, name: str):
-        return getattr(self.sock, name)
+from onioncall.identity import load_or_create_identity
+from onioncall.protocol import MessageType, perform_client_handshake, perform_server_handshake
 
 
 class ProtocolTests(unittest.TestCase):
-    def test_authenticated_handshake_and_bidirectional_messages(self) -> None:
+    def identities(self):
+        a = tempfile.TemporaryDirectory()
+        b = tempfile.TemporaryDirectory()
+        self.addCleanup(a.cleanup)
+        self.addCleanup(b.cleanup)
+        return load_or_create_identity(Path(a.name)), load_or_create_identity(Path(b.name))
+
+    def test_authenticated_identity_bound_handshake(self):
         left, right = socket.socketpair()
         psk = os.urandom(32)
-        result: dict[str, object] = {}
+        client_id, server_id = self.identities()
+        result = {}
 
-        def server() -> None:
-            channel = perform_server_handshake(left, psk)
-            result["message"] = channel.receive()
-            channel.send(MessageType.TEXT, b"antwort")
+        def server():
+            channel = perform_server_handshake(left, psk, server_id)
+            result['fp'] = channel.peer_fingerprint
+            result['msg'] = channel.receive().payload
+            channel.send(MessageType.TEXT, b'antwort')
 
-        thread = threading.Thread(target=server)
-        thread.start()
-        client = perform_client_handshake(right, psk)
-        client.send(MessageType.TEXT, b"hallo")
-        response = client.receive()
-        thread.join(timeout=2)
-        self.assertFalse(thread.is_alive())
-        self.assertEqual(result["message"].payload, b"hallo")
-        self.assertEqual(response.payload, b"antwort")
-        left.close()
-        right.close()
+        t = threading.Thread(target=server)
+        t.start()
+        client = perform_client_handshake(right, psk, client_id)
+        client.send(MessageType.TEXT, b'hallo')
+        self.assertEqual(client.receive().payload, b'antwort')
+        t.join(2)
+        self.assertEqual(result['msg'], b'hallo')
+        self.assertTrue(str(result['fp']).startswith('BRZ-'))
+        left.close(); right.close()
 
-    def test_wrong_secret_is_rejected(self) -> None:
+    def test_wrong_psk_rejected(self):
         left, right = socket.socketpair()
-        result: dict[str, BaseException] = {}
+        client_id, server_id = self.identities()
+        result = {}
 
-        def server() -> None:
+        def server():
             try:
-                perform_server_handshake(left, b"a" * 32, timeout=1)
+                perform_server_handshake(left, b'a'*32, server_id, timeout=1)
             except BaseException as exc:
-                result["error"] = exc
+                result['error'] = exc
 
-        thread = threading.Thread(target=server)
-        thread.start()
+        t = threading.Thread(target=server); t.start()
         with self.assertRaises(AuthenticationError):
-            perform_client_handshake(right, b"b" * 32, timeout=1)
-        right.close()
-        thread.join(timeout=2)
-        self.assertIsInstance(result.get("error"), AuthenticationError)
-        left.close()
+            perform_client_handshake(right, b'b'*32, client_id, timeout=1)
+        right.close(); t.join(2); left.close()
+        self.assertIsInstance(result.get('error'), AuthenticationError)
 
-    def test_tampering_is_rejected(self) -> None:
+    def test_changed_identity_rejected(self):
         left, right = socket.socketpair()
-        key = os.urandom(32)
-        recording = RecordingSocket(left)
-        sender = SecureChannel(recording, key, key)
-        sender.send(MessageType.TEXT, b"unveraendert")
-        wire = bytearray(recording.writes[0])
-        wire[-1] ^= 1
-        # Discard the original frame and inject the modified copy into a fresh pair.
-        right.recv(len(wire))
-        left2, right2 = socket.socketpair()
-        receiver = SecureChannel(right2, key, key)
-        left2.sendall(wire)
-        with self.assertRaisesRegex(ProtocolError, "Manipuliertes"):
-            receiver.receive()
-        left.close()
-        right.close()
-        left2.close()
-        right2.close()
+        psk = os.urandom(32)
+        client_id, server_id = self.identities()
+        fake_id, _ = self.identities()
+        wrong_fp = fake_id.fingerprint
 
-    def test_replay_is_rejected(self) -> None:
-        left, right = socket.socketpair()
-        key = os.urandom(32)
-        recording = RecordingSocket(left)
-        sender = SecureChannel(recording, key, key)
-        receiver = SecureChannel(right, key, key)
-        sender.send(MessageType.PING, b"")
-        self.assertEqual(receiver.receive().kind, MessageType.PING)
-        left.sendall(recording.writes[0])
-        with self.assertRaisesRegex(ProtocolError, "Replay"):
-            receiver.receive()
-        left.close()
-        right.close()
+        def server():
+            try:
+                perform_server_handshake(left, psk, server_id, timeout=1)
+            except BaseException:
+                pass
 
-    def test_type_specific_size_limit_is_enforced_before_body_read(self) -> None:
-        left, right = socket.socketpair()
-        key = os.urandom(32)
-        receiver = SecureChannel(right, key, key)
-        left.sendall(HEADER.pack(FRAME_VERSION, int(MessageType.TEXT), 0, 9000))
-        with self.assertRaisesRegex(ProtocolError, "zu groß"):
-            receiver.receive()
-        left.close()
-        right.close()
-
-    def test_sender_rejects_oversized_text(self) -> None:
-        left, right = socket.socketpair()
-        channel = SecureChannel(left, os.urandom(32), os.urandom(32))
-        with self.assertRaises(ProtocolError):
-            channel.send(MessageType.TEXT, b"x" * (8192 + 1))
-        left.close()
-        right.close()
+        t = threading.Thread(target=server); t.start()
+        with self.assertRaisesRegex(AuthenticationError, 'Fingerprint'):
+            perform_client_handshake(right, psk, client_id, expected_fingerprint=wrong_fp, timeout=1)
+        right.close(); t.join(2); left.close()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

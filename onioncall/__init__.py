@@ -1,3 +1,3 @@
-"""OnionCall."""
+"""BRZ – OnionCall."""
 
-__version__ = "2.5.0"
+__version__ = "2.7.5"

@@ -21,7 +21,8 @@ def safe_display(text: str) -> str:
 
 HELP = "Text direkt eingeben | a = 5 Sekunden Audio | q = Ende | /help = alle Befehle"
 FULL_HELP = (
-    "Kurz: Text direkt eingeben, a = 5 Sekunden Audio, q = Ende. Erweitert: /say SEKUNDEN, /text NACHRICHT, /quit"
+    "Kurz: Text direkt eingeben, a = 5 Sekunden Audio, q = Ende. "
+    "Erweitert: /say SEKUNDEN, /text NACHRICHT, /quit"
 )
 
 
@@ -35,10 +36,9 @@ class InteractiveSession:
         self.receiver = threading.Thread(target=self._receive_loop, name="onioncall-receiver", daemon=True)
 
     def run(self) -> None:
-        print(paint("Sichere Sitzung hergestellt.", BOLD, GREEN) + " " + paint(HELP, WHITE), flush=True)
+        identity = f" | Peer: {self.channel.peer_fingerprint}" if self.channel.peer_fingerprint else ""
+        print(paint("Sichere Sitzung hergestellt.", BOLD, GREEN) + identity + " " + paint(HELP, WHITE), flush=True)
         try:
-            # Hintergrundausgaben werden oberhalb der aktiven Eingabezeile dargestellt.
-            # prompt_toolkit zeichnet anschließend den Prompt und bereits getippten Text neu.
             with patch_stdout():
                 self.receiver.start()
                 while not self.finished.is_set():
@@ -55,20 +55,16 @@ class InteractiveSession:
                         break
                     if line == "/help":
                         print(FULL_HELP)
-                        continue
-                    if line == "a":
+                    elif line == "a":
                         self._send_audio("/say 5")
-                        continue
-                    if line.startswith("/say"):
+                    elif line.startswith("/say"):
                         self._send_audio(line)
-                        continue
-                    if line.startswith("/text "):
+                    elif line.startswith("/text "):
                         self._send_text(line[6:])
-                        continue
-                    if line.startswith("/"):
+                    elif line.startswith("/"):
                         print("Unbekannter Befehl. " + FULL_HELP)
-                        continue
-                    self._send_text(line)
+                    else:
+                        self._send_text(line)
         finally:
             self.finished.set()
             self._stop_prompt()
@@ -110,8 +106,7 @@ class InteractiveSession:
             print(paint(f"Aufnahme läuft für {seconds} Sekunden …", YELLOW), flush=True)
             payload = self.audio.record_opus(seconds)
             self.channel.send(MessageType.AUDIO_OPUS, payload)
-            label = paint("[Du · Audio]", BOLD, YELLOW)
-            print(f"{label} Sprachnachricht gesendet ({len(payload)} Bytes).", flush=True)
+            print(f"{paint('[Du · Audio]', BOLD, YELLOW)} Sprachnachricht gesendet ({len(payload)} Bytes).", flush=True)
         except (AudioError, OSError, ProtocolError) as exc:
             print(paint(f"Audio konnte nicht gesendet werden: {exc}", RED))
 
@@ -123,8 +118,7 @@ class InteractiveSession:
                     text = message.payload.decode("utf-8", errors="replace")
                     print(paint("[Gegenstelle]", BOLD, MAGENTA) + " " + safe_display(text), flush=True)
                 elif message.kind == MessageType.AUDIO_OPUS:
-                    label = paint("[Gegenstelle · Audio]", BOLD, YELLOW)
-                    print(f"{label} {len(message.payload)} Bytes – Wiedergabe …", flush=True)
+                    print(f"{paint('[Gegenstelle · Audio]', BOLD, YELLOW)} {len(message.payload)} Bytes – Wiedergabe …", flush=True)
                     try:
                         self.audio.play_opus(message.payload)
                     except AudioError as exc:

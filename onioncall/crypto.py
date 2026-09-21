@@ -9,10 +9,11 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-PROTOCOL_MAGIC = b"OCH2"
-PROTOCOL_VERSION = 2
-HELLO_SIZE = 70
+PROTOCOL_MAGIC = b"OCH3"
+PROTOCOL_VERSION = 3
+HELLO_SIZE = 102
 PROOF_SIZE = 32
+SIGNATURE_SIZE = 64
 
 
 class AuthenticationError(RuntimeError):
@@ -40,21 +41,21 @@ def new_key_pair() -> KeyPair:
     return KeyPair(private, public)
 
 
-def make_hello(role: int, public_key: bytes, nonce: bytes | None = None) -> bytes:
-    if role not in (1, 2) or len(public_key) != 32:
+def make_hello(role: int, public_key: bytes, identity_public: bytes, nonce: bytes | None = None) -> bytes:
+    if role not in (1, 2) or len(public_key) != 32 or len(identity_public) != 32:
         raise ValueError("Ungültige Hello-Parameter")
     nonce = nonce or secrets.token_bytes(32)
     if len(nonce) != 32:
         raise ValueError("Ungültige Nonce")
-    return PROTOCOL_MAGIC + bytes((PROTOCOL_VERSION, role)) + nonce + public_key
+    return PROTOCOL_MAGIC + bytes((PROTOCOL_VERSION, role)) + nonce + public_key + identity_public
 
 
-def parse_hello(data: bytes, expected_role: int) -> tuple[bytes, bytes]:
+def parse_hello(data: bytes, expected_role: int) -> tuple[bytes, bytes, bytes]:
     if len(data) != HELLO_SIZE:
         raise AuthenticationError("Ungültiger Handshake")
     if data[:4] != PROTOCOL_MAGIC or data[4] != PROTOCOL_VERSION or data[5] != expected_role:
         raise AuthenticationError("Inkompatibles oder ungültiges Protokoll")
-    return data[6:38], data[38:70]
+    return data[6:38], data[38:70], data[70:102]
 
 
 def proof(psk: bytes, label: bytes, transcript: bytes) -> bytes:
@@ -85,9 +86,7 @@ def derive_keys(
         algorithm=hashes.SHA256(),
         length=64,
         salt=salt,
-        info=b"OnionCall-v2/session-keys",
+        info=b"OnionCall-v3/session-keys",
     ).derive(shared + psk)
     client_to_server, server_to_client = material[:32], material[32:]
-    if client:
-        return SessionKeys(client_to_server, server_to_client)
-    return SessionKeys(server_to_client, client_to_server)
+    return SessionKeys(client_to_server, server_to_client) if client else SessionKeys(server_to_client, client_to_server)

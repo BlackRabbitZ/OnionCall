@@ -25,20 +25,23 @@ def app_home() -> Path:
 
 def ensure_private_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(path, 0o700)
+    with suppress(OSError):
+        os.chmod(path, 0o700)
 
 
 def atomic_private_write(path: Path, data: bytes) -> None:
     ensure_private_dir(path.parent)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
-        os.fchmod(fd, 0o600)
+        with suppress(OSError):
+            os.fchmod(fd, 0o600)
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(tmp_name, path)
-        os.chmod(path, 0o600)
+        with suppress(OSError):
+            os.chmod(path, 0o600)
     except BaseException:
         with suppress(FileNotFoundError):
             os.unlink(tmp_name)
@@ -52,6 +55,7 @@ class Config:
     tor_binary: str = "tor"
     max_audio_seconds: int = 120
     last_address: str | None = None
+    temporary_onion: bool = False
 
     def validate(self) -> None:
         for name, value in (("listen_port", self.listen_port), ("socks_port", self.socks_port)):
@@ -62,9 +66,12 @@ class Config:
         if not 1 <= self.max_audio_seconds <= 300:
             raise ConfigError("max_audio_seconds muss zwischen 1 und 300 liegen")
         if self.last_address is not None and (
-            not isinstance(self.last_address, str) or not re.fullmatch(r"[a-z2-7]{56}\.onion", self.last_address)
+            not isinstance(self.last_address, str)
+            or not re.fullmatch(r"[a-z2-7]{56}\.onion", self.last_address)
         ):
             raise ConfigError("last_address muss eine gültige Onion-v3-Adresse sein")
+        if not isinstance(self.temporary_onion, bool):
+            raise ConfigError("temporary_onion muss true oder false sein")
 
 
 def config_path(home: Path | None = None) -> Path:
@@ -134,7 +141,7 @@ def load_secret(home: Path | None = None) -> bytes:
     path = secret_path(home)
     try:
         mode = stat.S_IMODE(path.stat().st_mode)
-        if mode & 0o077:
+        if os.name != "nt" and mode & 0o077:
             raise ConfigError(f"Unsichere Rechte für {path}: {mode:o}; erwartet 600")
         return parse_secret(path.read_text(encoding="ascii"))
     except FileNotFoundError as exc:

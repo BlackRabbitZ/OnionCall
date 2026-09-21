@@ -12,8 +12,6 @@ EventCallback = Callable[[str, str], None]
 
 
 class GuiSession:
-    """Thread-safe bridge between a SecureChannel and the local web interface."""
-
     def __init__(self, channel: SecureChannel, audio: AudioBackend, emit: EventCallback):
         self.channel = channel
         self.audio = audio
@@ -22,6 +20,8 @@ class GuiSession:
         self.receiver = threading.Thread(target=self._receive_loop, name="onioncall-gui-receiver", daemon=True)
 
     def run(self) -> None:
+        if self.channel.peer_fingerprint:
+            self.emit("system", f"Identität bestätigt: {self.channel.peer_fingerprint}")
         self.receiver.start()
         self.finished.wait()
         self.channel.close()
@@ -65,8 +65,7 @@ class GuiSession:
             while not self.finished.is_set():
                 message = self.channel.receive()
                 if message.kind == MessageType.TEXT:
-                    text = message.payload.decode("utf-8", errors="replace")
-                    self.emit("peer", safe_display(text))
+                    self.emit("peer", safe_display(message.payload.decode("utf-8", errors="replace")))
                 elif message.kind == MessageType.AUDIO_OPUS:
                     self.emit("peer_audio", f"Sprachnachricht empfangen ({len(message.payload)} Bytes)")
                     try:

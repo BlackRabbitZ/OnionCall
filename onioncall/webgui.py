@@ -5,7 +5,6 @@ import platform
 import secrets
 import shutil
 import socket
-import subprocess
 import threading
 import time
 import webbrowser
@@ -18,20 +17,13 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .audio import AudioBackend, AudioError, is_termux, missing_audio_commands
-from .config import (
-    ConfigError,
-    app_home,
-    ensure_private_dir,
-    generate_secret,
-    import_secret,
-    load_config,
-    load_secret,
-    save_config,
-    secret_token,
-)
+from .config import ConfigError, app_home, ensure_private_dir, generate_secret, load_config, save_config
 from .crypto import AuthenticationError
 from .gui_session import GuiSession
-from .protocol import perform_client_handshake, perform_server_handshake
+from .identity import load_or_create_identity
+from .listener import accept_authenticated
+from .peers import import_peer_secret, list_peers, load_peer, peer_secret_token, pin_peer_fingerprint, set_peer_onion
+from .protocol import perform_client_handshake
 from .tor import TorError, TorProcess, socks5_connect, validate_onion
 
 MAX_REQUEST = 64 * 1024
@@ -45,7 +37,7 @@ class GuiController:
         self.event_id = 0
         self.state = "idle"
         self.detail = "Bereit"
-        self.own_address: str | None = self._stored_address()
+        self.own_address: str | None = None
         self.tor: TorProcess | None = None
         self.listener: socket.socket | None = None
         self.session: GuiSession | None = None
@@ -54,6 +46,16 @@ class GuiController:
         self.audio_busy = threading.Event()
         self._emit("system", "BRZ – OnionCall GUI ist bereit.")
 
+    def ensure_initialized(self) -> None:
+        home = app_home()
+        ensure_private_dir(home)
+        save_config(load_config(home), home)
+        load_or_create_identity(home)
+        try:
+            load_peer("default", home)
+        except ConfigError:
+            generate_secret(home)
+
     @staticmethod
     def _audio(config=None) -> AudioBackend:
         config = config or load_config()
@@ -61,24 +63,11 @@ class GuiController:
         ensure_private_dir(runtime)
         return AudioBackend(runtime, config.max_audio_seconds)
 
-    @staticmethod
-    def _stored_address() -> str | None:
-        hostname = app_home() / "tor" / "onion_service" / "hostname"
-        try:
-            return validate_onion(hostname.read_text(encoding="ascii").strip())
-        except (OSError, TorError):
-            return None
-
     def _emit(self, kind: str, message: str) -> None:
         with self.lock:
             self.event_id += 1
             self.events.append(
-                {
-                    "id": self.event_id,
-                    "kind": kind,
-                    "message": message,
-                    "time": time.strftime("%H:%M"),
-                }
+                {"id": self.event_id, "kind": kind, "message": message, "time": time.strftime("%H:%M:%S")}
             )
 
     def _set_state(self, state: str, detail: str) -> None:
@@ -86,30 +75,12 @@ class GuiController:
             self.state = state
             self.detail = detail
 
-    def ensure_initialized(self) -> bool:
-        home = app_home()
-        ensure_private_dir(home)
-        config = load_config(home)
-        save_config(config, home)
-        try:
-            load_secret(home)
-            return False
-        except ConfigError:
-            generate_secret(home)
-            self._emit("system", "Ein neuer Verbindungsschlüssel wurde sicher erzeugt.")
-            return True
-
     def status(self, after: int = 0) -> dict[str, object]:
-        try:
-            load_secret()
-            key_ok = True
-        except ConfigError:
-            key_ok = False
+        self.ensure_initialized()
         config = load_config()
         with self.lock:
             tor_active = bool(self.tor and self.tor.process and self.tor.process.poll() is None)
             active_session = self.session is not None and not self.session.finished.is_set()
-            events = [event for event in self.events if int(event["id"]) > after]
             return {
                 "version": __version__,
                 "state": self.state,
@@ -118,40 +89,28 @@ class GuiController:
                 "connected": active_session,
                 "tor_found": shutil.which(config.tor_binary) is not None,
                 "tor_active": tor_active,
-                "key_ok": key_ok,
+                "key_ok": True,
                 "audio_ok": not missing_audio_commands(),
                 "audio_missing": missing_audio_commands(),
                 "audio_busy": self.audio_busy.is_set(),
                 "own_address": self.own_address,
                 "last_address": config.last_address,
                 "platform": "Android/Termux" if is_termux() else platform.system(),
-                "events": events,
+                "peers": list_peers(),
+                "events": [e for e in self.events if int(e["id"]) > after],
                 "last_event": self.event_id,
             }
 
-    def show_secret(self) -> str:
+    def show_secret(self, peer_name: str) -> str:
         self.ensure_initialized()
-        return secret_token(load_secret())
+        return peer_secret_token(load_peer(peer_name or "default"))
 
-    def set_secret(self, token: str) -> None:
+    def set_secret(self, peer_name: str, token: str) -> None:
         with self.lock:
             if self.state not in {"idle", "error"}:
                 raise RuntimeError("Verbindungsschlüssel nur ohne aktive Verbindung ändern")
-        token = token.strip()
-        if not token:
-            raise ConfigError("Verbindungsschlüssel darf nicht leer sein")
-        import_secret(token, replace=True)
-        self._emit("system", "Verbindungsschlüssel sicher gespeichert.")
-
-    def start_listen(self) -> None:
-        self._start_worker("onioncall-gui-listen", self._listen_worker)
-
-    def start_call(self, raw_address: str) -> None:
-        address = validate_onion(raw_address)
-        config = load_config()
-        config.last_address = address
-        save_config(config)
-        self._start_worker("onioncall-gui-call", lambda: self._call_worker(address))
+        import_peer_secret(peer_name or "default", token.strip())
+        self._emit("system", f"Schlüsselprofil {peer_name or 'default'} gespeichert.")
 
     def _start_worker(self, name: str, target) -> None:
         with self.lock:
@@ -163,81 +122,88 @@ class GuiController:
             self.worker = threading.Thread(target=target, name=name, daemon=True)
             self.worker.start()
 
-    def _listen_worker(self) -> None:
+    def start_listen(self, peer_name: str, temporary: bool) -> None:
+        self._start_worker("onioncall-gui-listen", lambda: self._listen_worker(peer_name or "default", temporary))
+
+    def start_call(self, raw_address: str, peer_name: str) -> None:
+        address = validate_onion(raw_address)
+        self._start_worker("onioncall-gui-call", lambda: self._call_worker(address, peer_name or "default"))
+
+    def _listen_worker(self, peer_name: str, temporary: bool) -> None:
         tor = None
         listener = None
         try:
             config = load_config()
-            psk = load_secret()
+            peer = load_peer(peer_name)
+            identity = load_or_create_identity()
             listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             listener.bind(("127.0.0.1", config.listen_port))
-            listener.listen(1)
-            listener.settimeout(1)
-            tor = TorProcess(config)
+            tor = TorProcess(config, service=True, temporary_service=temporary or config.temporary_onion)
             with self.lock:
                 self.tor = tor
                 self.listener = listener
-            self._emit("system", "Tor wird verbunden. Das kann beim ersten Start etwas dauern …")
             address = tor.start()
+            assert address is not None
             with self.lock:
                 self.own_address = address
-            self._set_state("listening", "Warte auf eine eingehende Verbindung")
+            self._set_state("listening", "Warte auf authentifizierte Gegenstelle …")
             self._emit("address", address)
-            while not self.stop_requested.is_set():
-                try:
-                    connection, _ = listener.accept()
-                    break
-                except TimeoutError:
-                    continue
-            else:
-                return
-            listener.close()
+            channel = accept_authenticated(
+                listener,
+                peer.key,
+                identity,
+                peer.fingerprint,
+                stop_event=self.stop_requested,
+            )
+            listener.close()  # Erst nach erfolgreicher Authentifizierung.
+            listener = None
+            if channel.peer_fingerprint:
+                pin_peer_fingerprint(peer, channel.peer_fingerprint)
+            session = GuiSession(channel, self._audio(config), self._emit)
             with self.lock:
-                self.listener = None
-            self._set_state("authenticating", "Gegenstelle wird authentifiziert …")
-            channel = perform_server_handshake(connection, psk)
-            self._run_session(channel, config)
-        except (ConfigError, TorError, AuthenticationError, OSError) as exc:
+                self.session = session
+            self._set_state("connected", f"Sichere Sitzung mit {peer.name}")
+            session.run()
+        except (ConfigError, TorError, AuthenticationError, OSError, RuntimeError) as exc:
             if not self.stop_requested.is_set():
                 self._set_state("error", str(exc))
                 self._emit("error", str(exc))
         finally:
-            self._cleanup_connection(tor, listener)
+            self._cleanup(tor, listener)
 
-    def _call_worker(self, address: str) -> None:
+    def _call_worker(self, address: str, peer_name: str) -> None:
         tor = None
         try:
             config = load_config()
-            psk = load_secret()
-            tor = TorProcess(config)
+            config.last_address = address
+            save_config(config)
+            peer = load_peer(peer_name)
+            set_peer_onion(peer, address)
+            identity = load_or_create_identity()
+            # Caller ist reiner Tor-Client; kein eigener Hidden Service.
+            tor = TorProcess(config, service=False)
             with self.lock:
                 self.tor = tor
-            self._emit("system", "Tor wird verbunden. Das kann beim ersten Start etwas dauern …")
             tor.start()
-            if self.stop_requested.is_set():
-                return
-            self._set_state("connecting", "Empfänger wird verbunden …")
+            self._set_state("connecting", "Verbindung über Tor wird aufgebaut …")
             connection = socks5_connect(address, config.listen_port, config.socks_port)
-            self._set_state("authenticating", "Gegenstelle wird authentifiziert …")
-            channel = perform_client_handshake(connection, psk)
-            self._run_session(channel, config)
-        except (ConfigError, TorError, AuthenticationError, OSError) as exc:
+            channel = perform_client_handshake(connection, peer.key, identity, peer.fingerprint)
+            if channel.peer_fingerprint:
+                pin_peer_fingerprint(peer, channel.peer_fingerprint)
+            session = GuiSession(channel, self._audio(config), self._emit)
+            with self.lock:
+                self.session = session
+            self._set_state("connected", f"Sichere Sitzung mit {peer.name}")
+            session.run()
+        except (ConfigError, TorError, AuthenticationError, OSError, RuntimeError) as exc:
             if not self.stop_requested.is_set():
                 self._set_state("error", str(exc))
                 self._emit("error", str(exc))
         finally:
-            self._cleanup_connection(tor, None)
+            self._cleanup(tor, None)
 
-    def _run_session(self, channel, config) -> None:
-        session = GuiSession(channel, self._audio(config), self._emit)
-        with self.lock:
-            self.session = session
-        self._set_state("connected", "Sichere Sitzung hergestellt")
-        self._emit("system", "Sichere Sitzung hergestellt.")
-        session.run()
-
-    def _cleanup_connection(self, tor: TorProcess | None, listener: socket.socket | None) -> None:
+    def _cleanup(self, tor, listener) -> None:
         if listener is not None:
             with suppress(OSError):
                 listener.close()
@@ -255,18 +221,13 @@ class GuiController:
     def disconnect(self) -> None:
         self.stop_requested.set()
         with self.lock:
-            session = self.session
-            listener = self.listener
-            tor = self.tor
-            if self.state not in {"idle", "error"}:
-                self.state = "stopping"
-                self.detail = "Verbindung wird beendet …"
-        if session is not None:
+            session, listener, tor = self.session, self.listener, self.tor
+        if session:
             session.close()
-        if listener is not None:
+        if listener:
             with suppress(OSError):
                 listener.close()
-        if tor is not None:
+        if tor:
             tor.stop()
         self._emit("system", "Verbindung beendet.")
 
@@ -278,25 +239,24 @@ class GuiController:
         session.send_text(text)
 
     def send_audio(self, seconds: int) -> None:
-        if not 1 <= seconds <= 120:
-            raise ValueError("Aufnahmedauer muss zwischen 1 und 120 Sekunden liegen")
+        if not 1 <= seconds <= load_config().max_audio_seconds:
+            raise ValueError("Ungültige Aufnahmedauer")
         with self.lock:
             session = self.session
-            if session is None or session.finished.is_set():
-                raise RuntimeError("Keine sichere Sitzung aktiv")
-            if self.audio_busy.is_set():
-                raise RuntimeError("Eine Audioaufnahme läuft bereits")
-            self.audio_busy.set()
+        if session is None or session.finished.is_set():
+            raise RuntimeError("Keine sichere Sitzung aktiv")
+        if self.audio_busy.is_set():
+            raise RuntimeError("Eine Audioaufnahme läuft bereits")
+        self.audio_busy.set()
 
         def work() -> None:
             try:
                 session.send_audio(seconds)
-            except RuntimeError as exc:
-                self._emit("error", str(exc))
             finally:
                 self.audio_busy.clear()
 
-        threading.Thread(target=work, name="onioncall-gui-audio", daemon=True).start()
+        threading.Thread(target=work, daemon=True).start()
+
 
     def test_audio(self) -> None:
         with self.lock:
@@ -380,7 +340,6 @@ HTML = r"""<!doctype html>
     </section>
   </div>
 </main>
-
 <dialog id="callDialog"><form class="modal" id="callForm"><h3>Empfänger anrufen</h3><p>Füge exakt die `.onion`-Adresse ein, die beim Empfänger angezeigt wird.</p><input class="field" id="callAddress" autocomplete="off" placeholder="56 Zeichen.onion"><div class="modalbuttons"><button type="button" class="btn" id="cancelCallBtn">Abbrechen</button><button class="btn primary" id="callConfirm">Verbinden</button></div></form></dialog>
 <dialog id="secretDialog"><div class="modal"><h3>Geheimer Verbindungsschlüssel</h3><p>Nur über einen bereits sicheren Kanal teilen. Wer diesen Schlüssel besitzt, kann sich als Gesprächspartner ausgeben.</p><input class="field" id="secretValue" readonly><div class="modalbuttons"><button class="btn" id="copySecretBtn">Kopieren</button><button class="btn primary" id="closeSecretBtn">Schließen</button></div></div></dialog>
 <dialog id="importDialog"><div class="modal"><h3>Verbindungsschlüssel importieren</h3><p>Füge die vollständige Zeile ein, die mit `onioncall:v2:` beginnt. Eine `.onion`-Adresse gehört hier nicht hinein.</p><input class="field" id="importValue" type="password" autocomplete="off" placeholder="onioncall:v2:…"><div class="modalbuttons"><button class="btn" id="cancelImportBtn">Abbrechen</button><button class="btn primary" id="saveImportBtn">Sicher speichern</button></div></div></dialog>
@@ -391,10 +350,10 @@ const $=id=>document.getElementById(id);
 function toast(text){const t=$('toast');t.textContent=text;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400)}
 async function copyText(value){try{await navigator.clipboard.writeText(value)}catch(e){const area=document.createElement('textarea');area.value=value;area.className='copyhelper';document.body.append(area);area.select();document.execCommand('copy');area.remove()}}
 async function api(path,data={}){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-OnionCall-Token':TOKEN},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw new Error(j.error||'Aktion fehlgeschlagen');return j}
-function dot(id,ok,busy=false){$(id).className='dot '+(busy?'busy':ok?'ok':'')}
+function dot(id,state){$(id).className='dot '+(state==='green'?'ok':state==='yellow'?'busy':'')}
 function addEvent(e){const box=$('messages');const node=document.createElement('div');node.className='msg '+e.kind;const meta=document.createElement('div');meta.className='meta';const names={self:'Du',peer:'Gegenstelle',self_audio:'Du · Audio',peer_audio:'Gegenstelle · Audio',system:'System',error:'Fehler',address:'Onion-Adresse'};meta.textContent=(names[e.kind]||'System')+' · '+e.time;const text=document.createElement('div');text.textContent=e.message;node.append(meta,text);box.append(node);box.scrollTop=box.scrollHeight}
-function render(s){current=s;$('version').textContent='v'+s.version+' · '+s.platform;dot('torDot',s.tor_found,s.tor_active);$('torText').textContent=s.tor_active?'aktiv':s.tor_found?'installiert':'fehlt';dot('keyDot',s.key_ok);$('keyText').textContent=s.key_ok?'sicher gespeichert':'nicht eingerichtet';dot('audioDot',s.audio_ok,s.audio_busy);$('audioText').textContent=s.audio_busy?'beschäftigt':s.audio_ok?'bereit':s.audio_missing.join(', ')+' fehlt';dot('linkDot',s.connected,['starting','connecting','authenticating','listening','stopping'].includes(s.state));$('linkText').textContent=s.connected?'verbunden':s.state==='listening'?'wartet':s.state==='idle'?'bereit':s.state;$('detail').textContent=s.detail;const a=$('ownAddress');a.textContent=s.own_address||'Noch nicht erstellt. Starte „Empfangen“.';a.classList.toggle('empty',!s.own_address);$('callAddress').value=s.last_address||'';$('listenBtn').disabled=s.busy;$('callBtn').disabled=s.busy;$('disconnectBtn').disabled=!s.busy;$('showSecretBtn').disabled=s.busy;$('importSecretBtn').disabled=s.busy;$('audioTestBtn').disabled=s.busy||s.audio_busy;$('messageInput').disabled=!s.connected;$('audioBtn').disabled=!s.connected||s.audio_busy;for(const e of s.events)addEvent(e);lastEvent=s.last_event}
-async function poll(){try{const r=await fetch('/api/status?after='+lastEvent,{cache:'no-store'});render(await r.json())}catch(e){}setTimeout(poll,700)}
+function render(s){current=s;$('version').textContent='v'+s.version+' · '+s.platform;dot('torDot',s.tor_active?'green':'red');$('torText').textContent=s.tor_active?'aktiv':s.tor_found?'installiert':'fehlt';dot('keyDot',s.key_ok?'green':'red');$('keyText').textContent=s.key_ok?'sicher gespeichert':'nicht eingerichtet';dot('audioDot',s.audio_busy?'yellow':s.audio_ok?'green':'red');$('audioText').textContent=s.audio_busy?'beschäftigt':s.audio_ok?'bereit':s.audio_missing.join(', ')+' fehlt';dot('linkDot',s.connected?'green':['starting','connecting','authenticating','listening','stopping'].includes(s.state)?'yellow':'red');$('linkText').textContent=s.connected?'verbunden':s.state==='listening'?'wartet':s.state==='idle'?'bereit':s.state;$('detail').textContent=s.detail;const a=$('ownAddress');a.textContent=s.own_address||'Noch nicht erstellt. Starte „Empfangen“.';a.classList.toggle('empty',!s.own_address);$('callAddress').value=s.last_address||'';$('listenBtn').disabled=s.busy;$('callBtn').disabled=s.busy;$('disconnectBtn').disabled=!s.busy;$('showSecretBtn').disabled=s.busy;$('importSecretBtn').disabled=s.busy;$('audioTestBtn').disabled=s.busy||s.audio_busy;$('messageInput').disabled=!s.connected;$('audioBtn').disabled=!s.connected||s.audio_busy;for(const e of s.events)addEvent(e);lastEvent=s.last_event}
+async function poll(){try{const r=await fetch('/api/status?after='+lastEvent,{cache:'no-store',headers:{'X-OnionCall-Token':TOKEN}});render(await r.json())}catch(e){}setTimeout(poll,700)}
 $('listenBtn').onclick=()=>api('/api/listen').catch(e=>toast(e.message));
 $('callBtn').onclick=()=>{ $('callDialog').showModal();$('callAddress').focus() };
 $('cancelCallBtn').onclick=()=>$('callDialog').close();
@@ -417,50 +376,59 @@ poll();
 </body></html>"""
 
 
-class GuiHttpServer(ThreadingHTTPServer):
+class OnionHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
+    allow_reuse_address = False
 
-    def __init__(self, address, controller: GuiController):
-        super().__init__(address, GuiRequestHandler)
+    def __init__(self, server_address, controller: GuiController):
+        super().__init__(server_address, Handler)
         self.controller = controller
         self.token = secrets.token_urlsafe(32)
         self.nonce = secrets.token_urlsafe(18)
-        host, port = self.server_address
-        self.origin = f"http://{host}:{port}"
 
 
-class GuiRequestHandler(BaseHTTPRequestHandler):
-    server: GuiHttpServer
-    protocol_version = "HTTP/1.1"
+class Handler(BaseHTTPRequestHandler):
+    server: OnionHTTPServer
 
-    def log_message(self, _format, *_args) -> None:
-        pass
-
-    def _headers(self, content_type: str, length: int, status: int = 200) -> None:
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(length))
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("X-Frame-Options", "DENY")
-        self.send_header(
-            "Content-Security-Policy",
-            f"default-src 'none'; style-src 'nonce-{self.server.nonce}'; "
-            f"script-src 'nonce-{self.server.nonce}'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'",
-        )
-        self.end_headers()
-
-    def _send(self, data: bytes, content_type: str, status: int = 200) -> None:
-        self._headers(content_type, len(data), status)
-        self.wfile.write(data)
-
-    def _json(self, value: object, status: int = 200) -> None:
-        self._send(json.dumps(value, ensure_ascii=False).encode(), "application/json; charset=utf-8", status)
+    def log_message(self, *_args) -> None:
+        return
 
     def _valid_local_request(self) -> bool:
-        host = self.headers.get("Host", "").split(":", 1)[0].strip("[]")
-        return host in {"127.0.0.1", "localhost"}
+        host = self.headers.get("Host", "")
+        allowed = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
+        return self.client_address[0] in {"127.0.0.1", "::1"} and host in allowed
+
+    def _security_headers(self) -> None:
+        nonce = self.server.nonce
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Permissions-Policy", "camera=(), geolocation=(), payment=(), usb=(), browsing-topics=()")
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
+        self.send_header(
+            "Content-Security-Policy",
+            f"default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{nonce}'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+        )
+
+    def _send(self, body: bytes, content_type: str, status=HTTPStatus.OK) -> None:
+        self.send_response(status)
+        self._security_headers()
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json(self, data, status=HTTPStatus.OK) -> None:
+        self._send(json.dumps(data, ensure_ascii=False).encode(), "application/json; charset=utf-8", status)
+
+    def _authorized(self) -> bool:
+        return self._valid_local_request() and secrets.compare_digest(
+            self.headers.get("X-OnionCall-Token", ""), self.server.token
+        )
 
     def do_GET(self) -> None:
         if not self._valid_local_request():
@@ -471,26 +439,28 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             html = HTML.replace("__TOKEN__", self.server.token).replace("__NONCE__", self.server.nonce).encode()
             self._send(html, "text/html; charset=utf-8")
             return
+        if parsed.path in {"/icon.png", "/favicon.ico"}:
+            self._send(ICON_PNG, "image/png")
+            return
         if parsed.path == "/api/status":
+            if not self._authorized():
+                self._json({"error": "Nicht autorisiert"}, HTTPStatus.FORBIDDEN)
+                return
             try:
                 after = max(0, int(parse_qs(parsed.query).get("after", ["0"])[0]))
             except ValueError:
                 after = 0
             self._json(self.server.controller.status(after))
             return
-        if parsed.path in {"/icon.png", "/favicon.ico"}:
-            self._send(ICON_PNG, "image/png")
-            return
         self._json({"error": "Nicht gefunden"}, HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
-        if not self._valid_local_request() or not secrets.compare_digest(
-            self.headers.get("X-OnionCall-Token", ""), self.server.token
-        ):
+        if not self._authorized():
             self._json({"error": "Aktion nicht autorisiert"}, HTTPStatus.FORBIDDEN)
             return
         origin = self.headers.get("Origin")
-        if origin and not self._valid_origin(origin):
+        expected = f"http://127.0.0.1:{self.server.server_port}"
+        if origin and origin not in {expected, f"http://localhost:{self.server.server_port}"}:
             self._json({"error": "Ungültiger Ursprung"}, HTTPStatus.FORBIDDEN)
             return
         try:
@@ -504,73 +474,56 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(body, dict):
                 raise ValueError
-            result = self._route_post(urlparse(self.path).path, body)
+            result = self._route(urlparse(self.path).path, body)
             self._json({"ok": True, **result})
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             self._json({"error": "Ungültige Anfrage"}, HTTPStatus.BAD_REQUEST)
-        except (ConfigError, TorError, ValueError, RuntimeError) as exc:
+        except (ConfigError, TorError, RuntimeError) as exc:
             self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
 
-    def _route_post(self, path: str, body: dict) -> dict[str, object]:
-        controller = self.server.controller
+    def _route(self, path: str, body: dict) -> dict[str, object]:
+        c = self.server.controller
         if path == "/api/listen":
-            controller.start_listen()
+            c.start_listen(str(body.get("peer", "default")), bool(body.get("temporary", False)))
         elif path == "/api/call":
-            controller.start_call(str(body.get("address", "")))
+            c.start_call(str(body.get("address", "")), str(body.get("peer", "default")))
         elif path == "/api/disconnect":
-            controller.disconnect()
+            c.disconnect()
         elif path == "/api/message":
-            controller.send_text(str(body.get("text", "")))
+            c.send_text(str(body.get("text", "")))
         elif path == "/api/audio":
-            controller.send_audio(int(body.get("seconds", 5)))
+            c.send_audio(int(body.get("seconds", 5)))
         elif path == "/api/audio/test":
-            controller.test_audio()
+            c.test_audio()
         elif path == "/api/secret/show":
-            return {"secret": controller.show_secret()}
+            return {"secret": c.show_secret(str(body.get("peer", "default")))}
         elif path == "/api/secret/import":
-            controller.set_secret(str(body.get("secret", "")))
+            c.set_secret(str(body.get("peer", "default")), str(body.get("secret", "")))
         elif path == "/api/shutdown":
-            controller.shutdown()
+            c.shutdown()
             threading.Thread(target=self.server.shutdown, daemon=True).start()
         else:
-            raise ValueError("Unbekannte Aktion")
+            raise ValueError("Unbekannter API-Pfad")
         return {}
 
-    def _valid_origin(self, origin: str) -> bool:
-        try:
-            parsed = urlparse(origin)
-            return (
-                parsed.scheme == "http"
-                and parsed.hostname in {"127.0.0.1", "localhost"}
-                and parsed.port == self.server.server_address[1]
-            )
-        except ValueError:
-            return False
 
-
-def _open_browser(url: str) -> None:
-    if is_termux() and shutil.which("termux-open-url"):
-        subprocess.Popen(["termux-open-url", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return
-    if not webbrowser.open(url, new=1):
-        print(f"Öffne diese Adresse im Browser: {url}")
+def create_server(port: int = 0, controller: GuiController | None = None) -> OnionHTTPServer:
+    return OnionHTTPServer(("127.0.0.1", port), controller or GuiController())
 
 
 def run_gui(*, port: int = 0, open_browser: bool = True) -> int:
-    if not 0 <= port <= 65535:
-        raise ValueError("Port muss zwischen 0 und 65535 liegen")
     controller = GuiController()
-    server = GuiHttpServer(("127.0.0.1", port), controller)
-    url = server.origin
-    print(f"BRZ – OnionCall GUI läuft lokal unter {url}")
-    print("Mit Strg+C beenden. Nur dieses Gerät kann auf die Oberfläche zugreifen.")
+    controller.ensure_initialized()
+    server = create_server(port, controller)
+    url = f"http://127.0.0.1:{server.server_port}/"
+    print(f"BRZ – OnionCall GUI: {url}")
     if open_browser:
-        threading.Timer(0.4, _open_browser, args=(url,)).start()
+        threading.Timer(0.3, lambda: webbrowser.open(url)).start()
     try:
         server.serve_forever(poll_interval=0.3)
     except KeyboardInterrupt:
-        print("\nOnionCall wird beendet …")
+        pass
     finally:
-        controller.shutdown()
+        controller.disconnect()
         server.server_close()
     return 0

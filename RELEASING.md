@@ -1,21 +1,15 @@
-# Veröffentlichung einer Version
+# Releases
 
-1. Tests und Build ausführen:
+1. `python -m unittest discover -s tests -v`
+2. `ruff check .`
+3. Version in `pyproject.toml` und `onioncall/__init__.py` anpassen.
+4. Commit und annotierten/signierten Git-Tag erzeugen, z. B. `git tag -s v2.6.0` wenn ein eigener GPG/SSH-Signing-Key vorhanden ist.
+5. Tag pushen.
 
-   ```bash
-   make check
-   ```
+Der GitHub-Workflow baut Wheel + sdist, erzeugt SHA-256-Hashes und GitHub Artifact Attestations. Die Attestation kann mit GitHub CLI geprüft werden:
 
-2. Version in `pyproject.toml` und `onioncall/__init__.py` identisch aktualisieren.
-3. `CHANGELOG.md` ergänzen und das Datum eintragen.
-4. Commit erstellen und einen signierten Tag setzen:
+```bash
+gh attestation verify <datei> --repo BlackRabbitZ/OnionCall
+```
 
-   ```bash
-   git tag -s v2.0.1 -m 'OnionCall v2.0.1'
-   git push origin main --follow-tags
-   ```
-
-5. Der Release-Workflow prüft Tests und Versionsgleichheit, baut Wheel sowie Source Distribution und legt daraus einen GitHub Release an.
-6. Prüfsummen des veröffentlichten Artefakts dokumentieren. Eine PyPI-Veröffentlichung sollte erst nach Namensreservierung, Trusted-Publishing-Konfiguration und unabhängiger Paketprüfung aktiviert werden.
-
-Keine Version veröffentlichen, solange eine bekannte Schwachstelle mit hoher Auswirkung ungepatcht ist.
+Private Signierschlüssel gehören niemals in dieses Repository oder in Release-ZIPs.

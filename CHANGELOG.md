@@ -1,108 +1,71 @@
-# Änderungsprotokoll
+# Changelog
 
-Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert. Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
+## 2.7.5 - 2026-09-21
 
-## [2.5.0] – 2026-08-13
+- Statusfarben der bestehenden Haupt-GUI vereinheitlicht, ohne Layout oder Bedienelemente zu verändern.
+- Rot: nicht gestartet, fehlt oder Fehler.
+- Gelb: wartet, verbindet oder ist vorübergehend beschäftigt.
+- Grün: aktiv, bereit oder verbunden.
+- Insbesondere wird `Tor: aktiv` jetzt grün statt gelb dargestellt.
 
-### Hinzugefügt
+## 2.7.4 - 2026-09-21
 
-- neues BlackRabbitZ-OnionChat-Icon mit schwarzem Hasen in einer violetten Onion-Sprechblase
-- Icon in Anwendungs-GUI, grafischem Setup, Browser-Favicon, README und Linux-Programmstartern
-- eindeutige Vergleichstabelle und getrennte Schritt-für-Schritt-Erklärung für beide Ein-Datei-Installer
+- Windows-Installer-Ausgaben und Python-Unterprozesse werden deterministisch als UTF-8 behandelt.
+- Behebt `UnicodeEncodeError: charmap codec can't encode character \u2192` auf Windows-/PowerShell-Systemen mit Legacy-Codepage.
+- Setup-Backend verwendet in Statusausgaben zusätzlich ASCII `->` statt des Unicode-Pfeils.
+- pip-, Init- und Starter-Unterprozesse erhalten `PYTHONIOENCODING=utf-8` und `PYTHONUTF8=1`.
+- Haupt-GUI unverändert.
 
-### Geändert
+## 2.7.3 - 2026-09-21
 
-- beide Setup-Dateien verlangen mindestens Repository-Version 2.5.0, damit das Icon zuverlässig vorhanden ist
+- Windows-Installer: pip nutzt für private Downloads keinen direkten SOCKS-Proxy mehr.
+- Neuer lokaler HTTP-CONNECT-zu-Tor-SOCKS-Bridge verhindert urllib3/pip-Kompatibilitätsfehler mit `proxy_ssl_context`.
+- TLS bleibt Ende-zu-Ende zwischen pip und PyPI aktiv; Hostnamen werden weiterhin durch Tor aufgelöst.
+- Haupt-GUI unverändert.
 
-## [2.4.0] – 2026-08-13
+## 2.7.2 - 2026-09-21
 
-### Hinzugefügt
+- Windows-Installer: pip/Tor-Kompatibilitätsfehler `key_proxy_ssl_context` behoben.
+- pip wird beim privaten Tor-Installationspfad über einen lokalen Kompatibilitäts-Starter ausgeführt; die TLS-Prüfung und SOCKS5h-Namensauflösung bleiben aktiv.
+- Haupt-GUI unverändert.
 
-- farbige Terminal-Oberfläche mit Magenta/Cyan-Marke, grünen Erfolgen, gelben Hinweisen und roten Fehlern
-- sichtbarer Tool-Name `BRZ – OnionCall` in Terminal-App, beiden Installern, Web-GUI und Linux-Anwendungsstartern
-- automatische Farberkennung: keine ANSI-Codes in Logs, Weiterleitungen, ungeeigneten Terminals oder bei gesetztem `NO_COLOR`
-- farblich getrennte Chat-Kennzeichnungen für eigene Nachrichten, Gegenstelle und Audio
+## 2.7.1 - 2026-09-21
 
-### Behoben
+- Geführten lokalen Browser-Installer wiederhergestellt.
+- Windows: fehlt Tor, lädt das Setup automatisch das offizielle Tor Expert Bundle 15.0.23 vom Tor Project.
+- Tor-Bootstrap wird gegen die offizielle SHA-256-Prüfsumme geprüft.
+- Nach dem Tor-Bootstrap werden fehlende Python-Abhängigkeiten standardmäßig über Tor installiert.
+- Python-only Start bleibt erhalten; keine OnionCall-EXE-Launcher.
+- OnionCall-Haupt-GUI (`onioncall/webgui.py`) unverändert.
 
-- ein bereits belegter Tor-SOCKS-Port wird vor dem Start erkannt und mit konkreter Lösung erklärt
-- bei einem unerwarteten Tor-Ende werden relevante Warn- und Fehlerzeilen direkt im Terminal angezeigt
+## 2.7.0 - 2026-09-21
 
-## [2.3.0] – 2026-08-13
+- Tor v3 Client Authorization ergänzt.
+- Linux-Killswitch Python-only.
+- Windows-Killswitch ergänzt.
+- Private Installation/Updates über Tor erweitert.
+- Sichtbare GUI unverändert gegenüber 2.6.2.
 
-### Hinzugefügt
+## 2.6.1
 
-- vollständige nummerierte Terminal-Oberfläche mit kompaktem Status für Tor, Schlüssel, Audio und Onion-Adresse
-- direkte Terminal-Auswahl für Empfangen, Anrufen, Onion-Adresse, Schlüsselverwaltung, Audiotest, Diagnose und Einstellungen
-- eigenständige Datei `OnionCall-Terminal-Setup.py` für Installation und Aktualisierung vollständig ohne Web-GUI
-- eigener Programmstarter `onioncall-terminal` sowie Terminal-Starter für Linux, macOS und optional Termux:Widget
+- Windows/Python-Setup vereinfacht: OnionCall erzeugt keine eigenen `.exe`-CLI-Launcher mehr.
+- `[project.scripts]` entfernt; Start erfolgt direkt über `py Start-OnionCall.py` oder `python -m onioncall.cli`.
+- Setup installiert ausschließlich fehlende Python-Abhängigkeiten und verwendet `--no-warn-script-location`, damit normale Python-Installationen nicht mit PATH-Warnungen verwirrt werden.
+- `Start-OnionCall.py` und `Start-OnionCall-Terminal.py` hinzugefügt.
+- Setup bootstrapt `pip` bei Bedarf über `ensurepip`.
 
-### Geändert
+## 2.6.0
 
-- das bisherige einfache Terminalmenü wurde zu einer vollständigen alternativen Benutzeroberfläche erweitert
-- `onioncall terminal` und `onioncall menu` öffnen dieselbe Terminal-Oberfläche
-
-## [2.2.0] – 2026-08-13
-
-### Hinzugefügt
-
-- lokale grafische Oberfläche für Installation, Tor-Status, Empfangen, Anrufen, Schlüsselübertragung, Chat und Sprachnachrichten
-- eigenständige Datei `OnionCall-Setup.py`, die das Repository lädt, Systempakete installiert, eine virtuelle Umgebung erstellt, OnionCall prüft und Plattform-Starter anlegt
-- Desktop-Starter für Linux und macOS sowie optionaler Termux:Widget-Starter
-- abgesicherter lokaler Webserver mit zufälligem Sitzungstoken, Origin-/Host-Prüfung, Größenlimits und restriktiver Content Security Policy
-
-### Geändert
-
-- `onioncall` ohne Unterbefehl öffnet die grafische Oberfläche; das bisherige Terminalmenü bleibt über `onioncall menu` verfügbar
-- Tor-Start wartet nun zusätzlich auf 100 Prozent Bootstrap und einen erreichbaren lokalen SOCKS-Port; alte Bootstrap-Logs werden dabei nicht als aktueller Erfolg gewertet
-- Chat-Sitzungen besitzen für GUI und Terminal getrennte, threadsichere Darstellungen
-
-### Behoben
-
-- mehrfaches Beenden einer bereits geschlossenen Terminaleingabe löst keine nachlaufende `prompt-toolkit`-Ausnahme mehr aus
-- der Abbrechen-Knopf im Anrufdialog startet keinen Verbindungsversuch
-
-## [2.1.0] – 2026-08-13
-
-### Geändert
-
-- plattformneutrale README und vollständige Installationsanleitung für Fedora, Debian/Ubuntu, Raspberry Pi OS, Arch, macOS und Termux; Tor wird deutlich als Voraussetzung genannt
-- README mit Inhaltsverzeichnis, klarer Abschnittshierarchie und plattformbezogenen Sprungmarken übersichtlicher gestaltet
-- ausführliche Zwei-Geräte-Anleitung ergänzt: Rollen, Schlüsselaustausch, richtige Empfängeradresse, Rollenwechsel und Fehlerhilfe für SOCKS-Code 4
-- Schlüsselübertragung präzisiert: vollständiger Kopierbereich, unsichtbare Eingabe, Erfolgskontrolle und Warnung vor unsicheren Kommandozeilenargumenten
-- doppelten `set-secret`-Befehl und den Fehler `unrecognized arguments` dokumentiert; Schlüsselwerte als Kommandozeilenargument technisch deaktiviert
-- geführten Startbildschirm für Empfangen, Anrufen, Schlüsseleinrichtung und Diagnose ergänzt; letzter Gesprächspartner wird lokal gemerkt
-- Sitzungsbedienung vereinfacht: normaler Text sendet direkt, `a` nimmt fünf Sekunden Audio auf und `q` beendet
-- Verwechslungen zwischen einer `.onion`-Adresse und einem `onioncall:v2:`-Schlüssel werden mit einer gezielten Erklärung abgewiesen
-- robuste Terminaleingabe mit `prompt-toolkit`: Eingehende Nachrichten erscheinen oberhalb des Prompts und bereits getippter Text bleibt erhalten
-- Unterstützung für aktuelle `cryptography`-Pakete bis vor Version 51, insbesondere für Termux
-
-### Sicherheit
-
-- `onioncall set-secret` fragt den Verbindungsschlüssel ohne Argument verdeckt ab, damit er nicht in der Shell-History erscheint
-
-### Behoben
-
-- gleichzeitiges Empfangen und Tippen zerreißt nicht mehr die Chatzeile
-- einheitliche Kennzeichnung durch `[Du]`, `[Gegenstelle]`, `[Du · Audio]` und `[Gegenstelle · Audio]`
-
-### Geplant
-
-- reale Integrationstests auf Linux, macOS und Android/Termux
-- Fuzzing des Handshakes und Frame-Parsers
-- unabhängige kryptografische Prüfung
-
-## [2.0.0] – 2026-08-13
-
-### Hinzugefügt
-
-- eigenständiges OnionCall-v2-Protokoll
-- kurzlebiger X25519-Schlüsselaustausch
-- ChaCha20-Poly1305 für authentifizierte Verschlüsselung
-- HMAC-SHA-256 zur gegenseitigen Handshake-Authentifizierung
-- richtungsgetrennte Sitzungsschlüssel und strikte Sequenznummern
-- begrenzte Text- und Opus-Audiopakete
-- Tor-Onion-v3-Unterstützung mit eigenem Tor-Prozess
-- plattformabhängige Audio-Unterstützung für Linux, macOS und Termux
-- sichere Dateirechte, Onion-Validierung und Terminal-Escaping
-- automatisierte Protokoll- und Sicherheitstests
+### Security
+- direct-call/direct-listen strikt auf Loopback begrenzt.
+- Listener bleibt nach nicht authentifizierten Verbindungen aktiv.
+- Per-peer PSKs und Kontaktprofile hinzugefügt.
+- Ed25519-Installationsidentität und Fingerprint-Pinning hinzugefügt.
+- Protokoll auf v3 angehoben; beide Seiten müssen 2.6 verwenden.
+- Caller startet keinen eigenen Onion Service mehr.
+- Optionale temporäre Onion-v3-Adresse pro Empfangssitzung.
+- Audio-Format-, Größen-, Dauer- und Ressourcenlimits.
+- GUI-Status-API tokenpflichtig; zusätzliche Security Header.
+- Optionaler Linux/systemd OS-Killswitch.
+- Tor-only Update-Skript ohne Clearnet-Fallback.
+- CI + Release-Hashing + GitHub Artifact Attestations.

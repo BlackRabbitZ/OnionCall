@@ -9,24 +9,46 @@ import socket
 import sys
 from contextlib import suppress
 
+
+def _configure_utf8_stdio() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
+_configure_utf8_stdio()
+
 from . import __version__
 from .audio import AudioBackend, AudioError, is_termux, missing_audio_commands
-from .config import (
-    ConfigError,
-    app_home,
-    ensure_private_dir,
-    generate_secret,
-    import_secret,
-    load_config,
-    load_secret,
-    save_config,
-    secret_token,
+from .client_auth import (
+    generate_authorized_client,
+    import_client_authorization,
+    list_client_authorizations,
+    list_server_authorizations,
+    remove_client_authorization,
+    revoke_server_authorization,
 )
+from .config import ConfigError, app_home, ensure_private_dir, generate_secret, load_config, save_config
 from .crypto import AuthenticationError
-from .protocol import perform_client_handshake, perform_server_handshake
+from .identity import load_or_create_identity
+from .listener import accept_authenticated
+from .peers import (
+    create_peer,
+    import_peer_secret,
+    list_peers,
+    load_peer,
+    peer_secret_token,
+    pin_peer_fingerprint,
+    set_peer_onion,
+)
+from .protocol import perform_client_handshake
 from .session import InteractiveSession
 from .terminal_style import BOLD, CYAN, DIM, GREEN, MAGENTA, RED, WHITE, YELLOW, brand, paint, status
-from .tor import TorError, TorProcess, socks5_connect, validate_onion
+from .tor import TorError, TorProcess, loopback_connect, socks5_connect, validate_loopback_host, validate_onion
 from .webgui import run_gui
 
 
@@ -35,83 +57,68 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--version", action="version", version=f"BRZ – OnionCall {__version__}")
     commands = result.add_subparsers(dest="command")
 
-    commands.add_parser("menu", help="Vollständige Terminal-Oberfläche öffnen")
-    commands.add_parser("terminal", help="Vollständige Terminal-Oberfläche öffnen")
-
+    commands.add_parser("menu", help="Terminal-Oberfläche öffnen")
+    commands.add_parser("terminal", help="Terminal-Oberfläche öffnen")
     gui = commands.add_parser("gui", help="Lokale grafische Oberfläche öffnen")
-    gui.add_argument("--port", type=int, default=0, help="Lokaler HTTP-Port (Standard: automatisch)")
-    gui.add_argument("--no-browser", action="store_true", help="Browser nicht automatisch öffnen")
+    gui.add_argument("--port", type=int, default=0)
+    gui.add_argument("--no-browser", action="store_true")
 
-    init = commands.add_parser("init", help="Konfiguration und zufälligen Verbindungsschlüssel erzeugen")
-    init.add_argument("--replace", action="store_true", help="Vorhandenen Schlüssel ersetzen")
+    init = commands.add_parser("init", help="Konfiguration, Identität und Standardschlüssel erzeugen")
+    init.add_argument("--replace", action="store_true", help="Standardschlüssel ersetzen")
 
-    show = commands.add_parser("show-secret", help="Verbindungsschlüssel zur sicheren Weitergabe anzeigen")
-    show.add_argument("--confirm", action="store_true", help="Bestätigt die bewusste Anzeige")
+    show = commands.add_parser("show-secret", help="Schlüssel eines Kontaktprofils anzeigen")
+    show.add_argument("--peer", default="default")
+    show.add_argument("--confirm", action="store_true")
 
-    set_secret = commands.add_parser("set-secret", help="Verbindungsschlüssel der Gegenstelle importieren")
-    set_secret.add_argument("--replace", action="store_true")
+    set_secret = commands.add_parser("set-secret", help="Schlüssel eines Kontaktprofils importieren")
+    set_secret.add_argument("--peer", default="default")
 
-    commands.add_parser("doctor", help="Installation und Dateirechte prüfen")
+    peer_add = commands.add_parser("peer-add", help="Eigenes Schlüsselprofil für einen Kontakt erzeugen")
+    peer_add.add_argument("name")
+    peer_add.add_argument("--address")
+    commands.add_parser("peer-list", help="Kontaktprofile auflisten")
 
-    listen = commands.add_parser("listen", help="Onion-Adresse starten und einen Anruf annehmen")
+    tor_auth_create = commands.add_parser("tor-auth-create", help="Tor-v3-Client-Autorisierung für einen Client erzeugen")
+    tor_auth_create.add_argument("name")
+    tor_auth_create.add_argument("--replace", action="store_true")
+    tor_auth_import = commands.add_parser("tor-auth-import", help="Private Tor-v3-Client-Autorisierung für einen Onion Service importieren")
+    tor_auth_import.add_argument("address")
+    tor_auth_import.add_argument("--name", default="service")
+    tor_auth_revoke = commands.add_parser("tor-auth-revoke", help="Öffentliche Tor-Autorisierung eines Clients widerrufen")
+    tor_auth_revoke.add_argument("name")
+    tor_auth_remove = commands.add_parser("tor-auth-remove-client", help="Private Tor-Autorisierung eines Onion Service entfernen")
+    tor_auth_remove.add_argument("name")
+    commands.add_parser("tor-auth-list", help="Tor-v3-Client-Autorisierungen auflisten")
+
+    commands.add_parser("doctor", help="Installation und Sicherheitsstatus prüfen")
+
+    listen = commands.add_parser("listen", help="Onion-Adresse starten und authentifizierte Verbindung annehmen")
+    listen.add_argument("--peer", default="default")
+    listen.add_argument("--temporary-onion", action="store_true", help="Neue Onion-Adresse nur für diese Sitzung")
     listen.add_argument("--tor-timeout", type=float, default=180.0)
 
-    call = commands.add_parser("call", help="Eine Onion-Adresse anrufen")
-    call.add_argument("address")
+    call = commands.add_parser("call", help="Eine Onion-Adresse über Tor anrufen")
+    call.add_argument("address", nargs="?")
+    call.add_argument("--peer", default="default")
     call.add_argument("--tor-timeout", type=float, default=180.0)
+    call.add_argument("--existing-tor", action="store_true", help="Bereits laufenden lokalen Tor-SOCKS verwenden")
 
+    # Nur für lokale Diagnose. Externe IPs werden hart abgelehnt.
     direct_listen = commands.add_parser("direct-listen", help=argparse.SUPPRESS)
     direct_listen.add_argument("--host", default="127.0.0.1")
     direct_listen.add_argument("--port", type=int, default=17777)
+    direct_listen.add_argument("--peer", default="default")
     direct_call = commands.add_parser("direct-call", help=argparse.SUPPRESS)
     direct_call.add_argument("host")
     direct_call.add_argument("port", type=int)
+    direct_call.add_argument("--peer", default="default")
     return result
 
 
 def _audio(config) -> AudioBackend:
-    home = app_home()
-    runtime = home / "runtime"
+    runtime = app_home() / "runtime"
     ensure_private_dir(runtime)
     return AudioBackend(runtime, config.max_audio_seconds)
-
-
-def _run_listen(sock: socket.socket, psk: bytes, config) -> None:
-    sock.listen(1)
-    print(paint("Warte auf eine eingehende Verbindung …", BOLD, YELLOW), flush=True)
-    connection, _ = sock.accept()
-    sock.close()
-    channel = perform_server_handshake(connection, psk)
-    InteractiveSession(channel, _audio(config)).run()
-
-
-def _doctor() -> int:
-    failures = 0
-    print(f"Python: {platform.python_version()} ({sys.executable})")
-    print(f"Plattform: {'Android/Termux' if is_termux() else platform.system()}")
-    for command in ("tor", *missing_audio_commands()):
-        found = shutil.which(command)
-        if found:
-            print(f"{status(True)} {command}: {paint(found, DIM, WHITE)}")
-        else:
-            print(f"{status(False)} {command}")
-            failures += 1
-    home = app_home()
-    try:
-        ensure_private_dir(home)
-        mode = os.stat(home).st_mode & 0o777
-        print(f"{status(True)} Datenverzeichnis: {paint(str(home), DIM, WHITE)} ({mode:o})")
-        load_secret()
-        print(f"{status(True)} Verbindungsschlüssel vorhanden und Rechte sicher")
-    except ConfigError as exc:
-        print(paint(f"[FEHLER] {exc}", BOLD, RED))
-        failures += 1
-    return 0 if failures == 0 else 1
-
-
-def _pause() -> None:
-    with suppress(EOFError):
-        input("\nEnter drücken, um zum Menü zurückzukehren …")
 
 
 def _ensure_initialized() -> None:
@@ -119,211 +126,145 @@ def _ensure_initialized() -> None:
     ensure_private_dir(home)
     config = load_config(home)
     save_config(config, home)
+    load_or_create_identity(home)
     try:
-        load_secret(home)
+        load_peer("default", home)
     except ConfigError:
         generate_secret(home)
-        print(paint("Ein neuer Verbindungsschlüssel wurde sicher erzeugt.", GREEN))
 
 
-def _share_secret_guided() -> None:
-    _ensure_initialized()
-    print("\n" + paint("GEHEIMER VERBINDUNGSSCHLÜSSEL", BOLD, YELLOW))
-    print("Nur über einen bereits sicheren Kanal an die gewünschte Person senden.")
-    print("Nicht veröffentlichen und nicht mit einer `.onion`-Adresse verwechseln.\n")
-    print(paint(secret_token(load_secret()), BOLD, CYAN))
-
-
-def _import_secret_guided() -> None:
-    _ensure_initialized()
-    print("\nFüge jetzt die vollständige Zeile ein, die mit `onioncall:v2:` beginnt.")
-    print("Eine Adresse mit `.onion` gehört hier nicht hinein.")
-    token = getpass.getpass("Verbindungsschlüssel (Eingabe bleibt unsichtbar): ").strip()
-    if not token:
-        raise ConfigError("Verbindungsschlüssel darf nicht leer sein")
-    import_secret(token, replace=True)
-    print(paint("Verbindungsschlüssel sicher gespeichert.", GREEN))
-
-
-def _key_menu() -> None:
-    while True:
-        print("\n" + paint("── Verbindungsschlüssel ──", BOLD, MAGENTA))
-        _menu_item("1", "Meinen Schlüssel zum Teilen anzeigen")
-        _menu_item("2", "Erhaltenen Schlüssel einfügen")
-        _menu_item("0", "Zurück", dim=True)
-        try:
-            choice = input("Auswahl: ").strip()
-        except EOFError:
-            return
-        if choice == "1":
-            _share_secret_guided()
-            _pause()
-        elif choice == "2":
-            try:
-                _import_secret_guided()
-            except ConfigError as exc:
-                print(f"Fehler: {exc}", file=sys.stderr)
-            _pause()
-        elif choice == "0":
-            return
-        else:
-            print("Bitte 1, 2 oder 0 wählen.")
-
-
-def _stored_onion_address() -> str | None:
-    hostname = app_home() / "tor" / "onion_service" / "hostname"
-    try:
-        return validate_onion(hostname.read_text(encoding="ascii").strip())
-    except (OSError, TorError):
-        return None
-
-
-def _terminal_status() -> None:
+def _doctor() -> int:
+    failures = 0
+    print(f"Python: {platform.python_version()} ({sys.executable})")
+    print(f"Plattform: {'Android/Termux' if is_termux() else platform.system()}")
     config = load_config()
-    tor_ok = shutil.which(config.tor_binary) is not None
-    audio_missing = missing_audio_commands()
+    for command in (config.tor_binary, *missing_audio_commands()):
+        found = shutil.which(command)
+        print(f"{status(bool(found))} {command}: {paint(found or 'nicht gefunden', DIM, WHITE)}")
+        if not found:
+            failures += 1
     try:
-        load_secret()
-        key_ok = True
-    except ConfigError:
-        key_ok = False
-    address = _stored_onion_address()
-    print(f"{paint('Tor:', DIM, WHITE)} {status(tor_ok)}", end="  ")
-    print(f"{paint('Schlüssel:', DIM, WHITE)} {status(key_ok)}", end="  ")
-    print(f"{paint('Audio:', DIM, WHITE)} {status(not audio_missing)}")
-    shown_address = paint(address, CYAN) if address else paint("wird beim ersten Empfangen erstellt", DIM, WHITE)
-    print(f"{paint('Onion-Adresse:', DIM, WHITE)} {shown_address}")
+        home = app_home()
+        ensure_private_dir(home)
+        ident = load_or_create_identity(home)
+        print(f"{status(True)} Lokale Identität: {ident.fingerprint}")
+        peers = list_peers(home)
+        print(f"{status(bool(peers))} Kontaktprofile: {', '.join(peers) if peers else 'keine'}")
+        if not peers:
+            failures += 1
+        mode = os.stat(home).st_mode & 0o777
+        print(f"{status(True)} Datenverzeichnis: {home} ({mode:o})")
+    except (ConfigError, OSError, RuntimeError) as exc:
+        print(paint(f"[FEHLER] {exc}", BOLD, RED))
+        failures += 1
+    if platform.system() == "Linux":
+        print(f"{status(shutil.which('prlimit') is not None)} Audio-Ressourcenlimit (prlimit)")
+        print("[INFO] Linux-Killswitch: scripts/onioncall-killswitch-linux.sh")
+    elif platform.system() == "Windows":
+        print("[INFO] Windows-Killswitch: scripts\\onioncall-killswitch-windows.ps1")
+    print(f"[INFO] Tor Client Authorization (Server): {len(list_server_authorizations())} Eintrag/Einträge")
+    print(f"[INFO] Tor Client Authorization (Client): {len(list_client_authorizations())} Eintrag/Einträge")
+    return 0 if failures == 0 else 1
 
 
-def _show_address() -> None:
-    address = _stored_onion_address()
-    if address:
-        print("\n" + paint("Deine gespeicherte Onion-Adresse:", BOLD, MAGENTA))
-        print(paint(address, BOLD, CYAN))
-        print("Maßgeblich ist immer die Adresse, die beim Empfangen angezeigt wird.")
-    else:
-        print("\n" + paint("Noch keine Onion-Adresse vorhanden. Wähle zuerst ‚Gespräch empfangen‘.", YELLOW))
+def _pin_after_handshake(peer, channel) -> None:
+    if channel.peer_fingerprint:
+        pin_peer_fingerprint(peer, channel.peer_fingerprint)
+        print(paint(f"Identität: {channel.peer_fingerprint}", DIM, WHITE))
 
 
-def _audio_test() -> None:
+def _listen(peer_name: str, *, temporary_onion: bool, timeout: float) -> int:
     config = load_config()
-    print("\n" + paint("Audiotest: drei Sekunden aufnehmen …", YELLOW))
-    payload = _audio(config).record_opus(3)
-    print("Aufnahme wird wiedergegeben …")
-    _audio(config).play_opus(payload)
-    print(paint("Audiotest erfolgreich.", BOLD, GREEN))
-
-
-def _number_setting(label: str, current: int, minimum: int, maximum: int) -> int:
-    entered = input(f"{label} [{current}]: ").strip()
-    if not entered:
-        return current
-    if not entered.isdigit() or not minimum <= int(entered) <= maximum:
-        raise ConfigError(f"{label} muss zwischen {minimum} und {maximum} liegen")
-    return int(entered)
-
-
-def _settings_menu() -> None:
-    config = load_config()
-    print("\n" + paint("── Einstellungen ──", BOLD, MAGENTA))
-    print("Enter übernimmt jeweils den bisherigen Wert.")
+    peer = load_peer(peer_name)
+    identity = load_or_create_identity()
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", config.listen_port))
+    tor = TorProcess(config, service=True, temporary_service=temporary_onion or config.temporary_onion)
     try:
-        config.listen_port = _number_setting("Gesprächsport", config.listen_port, 1024, 65535)
-        config.socks_port = _number_setting("Tor-SOCKS-Port", config.socks_port, 1024, 65535)
-        config.max_audio_seconds = _number_setting("Maximale Audiosekunden", config.max_audio_seconds, 1, 300)
-        save_config(config)
-        print(paint("Einstellungen sicher gespeichert.", GREEN))
-    except (EOFError, ConfigError) as exc:
-        print(f"Fehler: {exc}", file=sys.stderr)
+        address = tor.start(timeout)
+        assert address is not None
+        print(f"{paint('Deine Onion-Adresse:', BOLD, MAGENTA)} {paint(address, BOLD, CYAN)}")
+        print(paint("Warte auf eine authentifizierte Verbindung …", BOLD, YELLOW), flush=True)
+        channel = accept_authenticated(listener, peer.key, identity, peer.fingerprint)
+        listener.close()  # Erst NACH erfolgreichem Handshake schließen.
+        _pin_after_handshake(peer, channel)
+        InteractiveSession(channel, _audio(config)).run()
+    finally:
+        with suppress(OSError):
+            listener.close()
+        tor.stop()
+    return 0
 
 
-def _address_for_menu() -> str:
+def _call(address: str, peer_name: str, timeout: float, *, existing_tor: bool = False) -> int:
     config = load_config()
-    if config.last_address:
-        prompt = f"Empfängeradresse einfügen (Enter = zuletzt verwendete {config.last_address}): "
-    else:
-        prompt = "Die beim Empfänger angezeigte `.onion`-Adresse einfügen: "
-    try:
-        entered = input(prompt).strip()
-    except EOFError as exc:
-        raise ConfigError("Keine Empfängeradresse eingegeben") from exc
-    address = entered or config.last_address
-    if not address:
-        raise ConfigError("Keine Empfängeradresse eingegeben")
+    peer = load_peer(peer_name)
+    identity = load_or_create_identity()
     address = validate_onion(address)
     config.last_address = address
     save_config(config)
-    return address
-
-
-def _menu_item(number: str, label: str, *, dim: bool = False) -> None:
-    number_text = paint(number.rjust(2), BOLD, MAGENTA)
-    label_text = paint(label, DIM, WHITE) if dim else paint(label, WHITE)
-    print(f"{number_text}  {label_text}")
+    set_peer_onion(peer, address)
+    # Caller ist bewusst nur Tor-Client; kein Hidden Service wird erzeugt.
+    tor = None if existing_tor else TorProcess(config, service=False)
+    try:
+        if tor is not None:
+            tor.start(timeout)
+        else:
+            # Der OS-Killswitch-Modus startet Tor bewusst außerhalb der eingeschränkten App-Cgroup.
+            probe = loopback_connect("127.0.0.1", config.socks_port, timeout=2)
+            probe.close()
+        connection = socks5_connect(address, config.listen_port, config.socks_port)
+        channel = perform_client_handshake(connection, peer.key, identity, peer.fingerprint)
+        _pin_after_handshake(peer, channel)
+        InteractiveSession(channel, _audio(config)).run()
+    finally:
+        if tor is not None:
+            tor.stop()
+    return 0
 
 
 def _menu() -> int:
+    _ensure_initialized()
     while True:
-        print("\n" + paint("═" * 60, MAGENTA))
-        print(" " * 17 + brand(__version__))
-        print(" " * 12 + paint("Sicherer Text und Sprache über Tor", DIM, WHITE))
-        print(paint("═" * 60, MAGENTA))
-        _terminal_status()
-        print(paint("─" * 60, DIM, WHITE))
-        _menu_item("1", "Gespräch empfangen")
-        _menu_item("2", "Person anrufen")
-        _menu_item("3", "Meine Onion-Adresse anzeigen")
-        _menu_item("4", "Verbindungsschlüssel verwalten")
-        _menu_item("5", "Audio testen (3 Sekunden)")
-        _menu_item("6", "Installation ausführlich prüfen")
-        _menu_item("7", "Einstellungen")
-        _menu_item("0", "Beenden", dim=True)
+        print("\n" + paint("═" * 56, MAGENTA))
+        print(" " * 14 + brand(__version__))
+        print(paint("═" * 56, MAGENTA))
+        print("1  Gespräch empfangen")
+        print("2  Person anrufen")
+        print("3  Kontaktprofile anzeigen")
+        print("4  Sicherheitsdiagnose")
+        print("0  Beenden")
         try:
             choice = input("Auswahl: ").strip()
         except EOFError:
             return 0
-
         if choice == "1":
-            _ensure_initialized()
-            print("\nEmpfänger wird gestartet. Dieses Terminal geöffnet lassen.")
-            main(["listen"])
-            _pause()
+            peer = input("Kontaktprofil [default]: ").strip() or "default"
+            temporary = input("Temporäre Onion-Adresse? [j/N]: ").strip().lower() in {"j", "ja", "y", "yes"}
+            try:
+                _listen(peer, temporary_onion=temporary, timeout=180.0)
+            except (ConfigError, TorError, AuthenticationError, OSError) as exc:
+                print(paint(f"Fehler: {exc}", RED))
         elif choice == "2":
-            _ensure_initialized()
+            peer_name = input("Kontaktprofil [default]: ").strip() or "default"
+            peer = load_peer(peer_name)
+            raw = input(f"Onion-Adresse [{peer.onion or ''}]: ").strip() or peer.onion or ""
             try:
-                address = _address_for_menu()
-            except (ConfigError, TorError) as exc:
-                print(f"Fehler: {exc}", file=sys.stderr)
-                _pause()
-                continue
-            main(["call", address])
-            _pause()
+                _call(raw, peer_name, 180.0)
+            except (ConfigError, TorError, AuthenticationError, OSError) as exc:
+                print(paint(f"Fehler: {exc}", RED))
         elif choice == "3":
-            _show_address()
-            _pause()
+            for name in list_peers():
+                peer = load_peer(name)
+                print(f"- {name}: {peer.fingerprint or 'noch nicht gepinnt'} {peer.onion or ''}")
         elif choice == "4":
-            _key_menu()
-        elif choice == "5":
-            try:
-                _audio_test()
-            except (AudioError, ConfigError, OSError) as exc:
-                print(f"Fehler: {exc}", file=sys.stderr)
-            _pause()
-        elif choice == "6":
             _doctor()
-            _pause()
-        elif choice == "7":
-            _settings_menu()
-            _pause()
         elif choice == "0":
-            print(paint("BRZ – OnionCall beendet.", DIM, WHITE))
             return 0
-        else:
-            print("Bitte eine Zahl von 0 bis 7 wählen.")
 
 
 def run_terminal() -> int:
-    """Entry point for the complete terminal interface."""
     return _menu()
 
 
@@ -339,74 +280,113 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "init":
             home = app_home()
             ensure_private_dir(home)
-            config = load_config(home)
-            save_config(config, home)
-            generate_secret(home, replace=args.replace)
+            save_config(load_config(home), home)
+            load_or_create_identity(home)
+            try:
+                generate_secret(home, replace=args.replace)
+            except ConfigError:
+                if args.replace:
+                    raise
             print(f"OnionCall wurde in {home} eingerichtet.")
-            print("Gib den Schlüssel nur über einen bereits sicheren Kanal weiter: onioncall show-secret --confirm")
             return 0
         if args.command == "show-secret":
             if not args.confirm:
                 raise ConfigError("Die Anzeige legt den Schlüssel offen; erneut mit --confirm aufrufen")
-            print(secret_token(load_secret()))
+            print(peer_secret_token(load_peer(args.peer)))
             return 0
         if args.command == "set-secret":
             token = getpass.getpass("Verbindungsschlüssel (Eingabe bleibt unsichtbar): ").strip()
             if not token:
                 raise ConfigError("Verbindungsschlüssel darf nicht leer sein")
-            import_secret(token, replace=args.replace)
+            import_peer_secret(args.peer, token)
             print("Verbindungsschlüssel sicher gespeichert.")
+            return 0
+        if args.command == "peer-add":
+            address = validate_onion(args.address) if args.address else None
+            peer = create_peer(args.name, onion=address)
+            print(f"Kontakt {peer.name} erstellt.")
+            print("Schlüssel zur sicheren Weitergabe:")
+            print(peer_secret_token(peer))
+            return 0
+        if args.command == "peer-list":
+            for name in list_peers():
+                peer = load_peer(name)
+                print(f"{name}\t{peer.fingerprint or '-'}\t{peer.onion or '-'}")
+            return 0
+        if args.command == "tor-auth-create":
+            token = generate_authorized_client(args.name, replace=args.replace)
+            print("Tor-v3-Client-Autorisierung wurde erzeugt.")
+            print("Diesen privaten Schlüssel NUR sicher an den berechtigten Client weitergeben:")
+            print(token)
+            print("Die öffentliche .auth-Datei wird bei jedem Onion-Service-Start automatisch aktiviert.")
+            return 0
+        if args.command == "tor-auth-import":
+            token = getpass.getpass("Privater Tor-Authorization-Schlüssel (Eingabe bleibt unsichtbar): ").strip()
+            if not token:
+                raise ConfigError("Tor-Authorization-Schlüssel darf nicht leer sein")
+            path = import_client_authorization(validate_onion(args.address), token, name=args.name)
+            print(f"Private Tor-Autorisierung gespeichert: {path}")
+            return 0
+        if args.command == "tor-auth-revoke":
+            removed = revoke_server_authorization(args.name)
+            print("Tor-Autorisierung widerrufen." if removed else "Keine passende Tor-Autorisierung gefunden.")
+            return 0 if removed else 1
+        if args.command == "tor-auth-remove-client":
+            removed = remove_client_authorization(args.name)
+            print("Private Tor-Autorisierung entfernt." if removed else "Keine passende private Tor-Autorisierung gefunden.")
+            return 0 if removed else 1
+        if args.command == "tor-auth-list":
+            server = list_server_authorizations()
+            client = list_client_authorizations()
+            print("Server / erlaubte Clients: " + (", ".join(server) if server else "keine"))
+            print("Client / private Service-Zugänge: " + (", ".join(client) if client else "keine"))
             return 0
         if args.command == "doctor":
             return _doctor()
 
-        config = load_config()
-        psk = load_secret()
-
+        _ensure_initialized()
         if args.command == "listen":
-            tor = TorProcess(config)
-            try:
-                address = tor.start(args.tor_timeout)
-                listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                listener.bind(("127.0.0.1", config.listen_port))
-                print(f"{paint('Deine Onion-Adresse:', BOLD, MAGENTA)} {paint(address, BOLD, CYAN)}")
-                _run_listen(listener, psk, config)
-            finally:
-                tor.stop()
-            return 0
-
+            return _listen(args.peer, temporary_onion=args.temporary_onion, timeout=args.tor_timeout)
         if args.command == "call":
-            address = validate_onion(args.address)
-            config.last_address = address
-            save_config(config)
-            tor = TorProcess(config)
+            peer = load_peer(args.peer)
+            address = args.address or peer.onion or load_config().last_address
+            if not address:
+                raise ConfigError("Keine Onion-Adresse angegeben oder im Kontaktprofil gespeichert")
+            return _call(address, args.peer, args.tor_timeout, existing_tor=args.existing_tor)
+        if args.command == "direct-listen":
+            host = validate_loopback_host(args.host)
+            config = load_config()
+            peer = load_peer(args.peer)
+            identity = load_or_create_identity()
+            family = socket.AF_INET6 if ":" in host else socket.AF_INET
+            listener = socket.socket(family, socket.SOCK_STREAM)
+            listener.bind((host, args.port))
             try:
-                tor.start(args.tor_timeout)
-                connection = socks5_connect(address, config.listen_port, config.socks_port)
-                channel = perform_client_handshake(connection, psk)
+                channel = accept_authenticated(listener, peer.key, identity, peer.fingerprint)
+                _pin_after_handshake(peer, channel)
                 InteractiveSession(channel, _audio(config)).run()
             finally:
-                tor.stop()
+                listener.close()
             return 0
-
-        if args.command == "direct-listen":
-            listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            listener.bind((args.host, args.port))
-            _run_listen(listener, psk, config)
-            return 0
-
         if args.command == "direct-call":
-            connection = socket.create_connection((args.host, args.port), timeout=20)
+            host = validate_loopback_host(args.host)
+            config = load_config()
+            peer = load_peer(args.peer)
+            identity = load_or_create_identity()
+            connection = loopback_connect(host, args.port, timeout=20)
             connection.settimeout(None)
-            channel = perform_client_handshake(connection, psk)
+            channel = perform_client_handshake(connection, peer.key, identity, peer.fingerprint)
+            _pin_after_handshake(peer, channel)
             InteractiveSession(channel, _audio(config)).run()
             return 0
         return 2
     except KeyboardInterrupt:
         print(paint("\nAbgebrochen.", YELLOW, stream=sys.stderr), file=sys.stderr)
         return 130
-    except (ConfigError, TorError, AuthenticationError, OSError) as exc:
+    except (ConfigError, TorError, AuthenticationError, AudioError, OSError, RuntimeError) as exc:
         print(paint(f"Fehler: {exc}", BOLD, RED, stream=sys.stderr), file=sys.stderr)
         return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,15 +1,17 @@
-# BRZ – OnionCall 2.5
+# BRZ – OnionCall 2.7.5
 
 <p align="center">
   <img src="onioncall/assets/onioncall-icon.png" alt="BlackRabbitZ OnionChat – Hase in einer violetten Onion-Sprechblase" width="180">
 </p>
 
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![Plattformen](https://img.shields.io/badge/Plattformen-Linux%20%7C%20macOS%20%7C%20Termux-2ea44f)
+![Plattformen](https://img.shields.io/badge/Plattformen-Windows%20%7C%20Linux%20%7C%20macOS%20%7C%20Termux-2ea44f)
 ![Lizenz](https://img.shields.io/badge/Lizenz-Apache--2.0-blue)
 ![Status](https://img.shields.io/badge/Status-Alpha-orange)
 
 BRZ – OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für Tor-Onion-Services mit einem sicherheitsorientierten Protokoll.
+
+Die 2.7.x-Reihe ergänzt den bisherigen OnionCall-Aufbau um zusätzliche Schutzschichten gegen direkte IP-Leaks, einen gehärteten Installer, optionale Tor-v3-Client-Autorisierung und Betriebssystem-Killswitches. Die bestehende OnionCall-Haupt-GUI bleibt dabei unverändert.
 
 > [!CAUTION]
 > OnionCall wurde noch nicht unabhängig auditiert. Verwende diese Alpha-Version nicht als alleinige Schutzmaßnahme in einer Hochrisikosituation.
@@ -18,14 +20,17 @@ BRZ – OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für T
 
 - [Überblick](#überblick)
 - [Sicherheitsmerkmale](#sicherheitsmerkmale)
+- [Zusätzliche Sicherheits-Härtung ab 2.7](#zusätzliche-sicherheits-härtung-ab-27)
 - [Installation](#installation)
   - [Welche Setup-Datei soll ich nehmen?](#welche-setup-datei-soll-ich-nehmen)
   - [Grafische Setup-Datei](#setup-datei-1-grafische-installation-empfohlen)
   - [Terminal-Setup-Datei](#setup-datei-2-installation-vollständig-im-terminal)
+  - [Windows-Erstinstallation und Tor-Bootstrap](#windows-erstinstallation-und-tor-bootstrap)
   - [Was vorher installiert sein muss](#was-vorher-installiert-sein-muss)
   - [Was das Setup automatisch erledigt](#was-das-setup-automatisch-erledigt)
   - [Voraussetzungen](#voraussetzungen)
   - [Systemprogramme nach Plattform](#systemprogramme-nach-plattform)
+    - [Windows](#windows)
     - [Fedora](#fedora)
     - [Debian und Ubuntu](#debian-und-ubuntu)
     - [Raspberry Pi OS](#raspberry-pi-os)
@@ -50,6 +55,13 @@ BRZ – OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für T
   - [Verbindung aufbauen](#schritt-5-vom-anrufer-verbindung-aufbauen)
   - [Nachrichten und Sprache verwenden](#schritt-6-nachrichten-und-sprache-verwenden)
   - [Nächster Anruf und Rollenwechsel](#nächster-anruf-und-rollenwechsel)
+- [Kontaktprofile und getrennte Schlüssel](#kontaktprofile-und-getrennte-schlüssel)
+- [Tor v3 Client Authorization](#tor-v3-client-authorization)
+- [Temporäre Onion-Adresse](#temporäre-onion-adresse)
+- [OS-Killswitch](#os-killswitch)
+  - [Linux-Killswitch](#linux-killswitch)
+  - [Windows-Killswitch](#windows-killswitch)
+- [Private Installation und Updates über Tor](#private-installation-und-updates-über-tor)
 - [Konfiguration und Dateien](#konfiguration-und-dateien)
 - [Tests und Entwicklung](#tests-und-entwicklung)
 - [Bekannte Grenzen](#bekannte-grenzen)
@@ -60,75 +72,115 @@ BRZ – OnionCall ist eine eigenständige Push-to-talk- und Textanwendung für T
 
 ### Unterstützte Systeme
 
+- Windows 10/11
 - Linux, einschließlich Raspberry Pi
 - macOS auf Intel und Apple Silicon
 - Android innerhalb von Termux
 
 ### Funktionsweise
 
-OnionCall überträgt Text und aufgezeichnete Opus-Sprachnachrichten, keine kontinuierlichen Telefonanrufe. Beide Seiten benötigen denselben zufälligen Verbindungsschlüssel. Die grafische Oberfläche wird ausschließlich auf `127.0.0.1` bereitgestellt und im lokalen Browser geöffnet; sie ist kein öffentlicher Webdienst und überträgt keine Inhalte an einen zentralen Server.
+OnionCall überträgt Text und aufgezeichnete Opus-Sprachnachrichten, keine kontinuierlichen Telefonanrufe. Beide Seiten benötigen einen passenden zufälligen Verbindungsschlüssel. Die grafische Oberfläche wird ausschließlich auf `127.0.0.1` bereitgestellt und im lokalen Browser geöffnet; sie ist kein öffentlicher Webdienst und überträgt keine Inhalte an einen zentralen Server.
+
+Die Verbindung zur Gegenstelle läuft über einen Tor Onion Service. Für direkte Gespräche wird ein authentifizierter, verschlüsselter Anwendungskanal innerhalb der Tor-Verbindung aufgebaut.
 
 ## Sicherheitsmerkmale
+
+Die bisherige Sicherheitsarchitektur bleibt erhalten:
 
 - ChaCha20-Poly1305 statt ungeschützter CBC-/CTR-Verschlüsselung
 - kurzlebiger X25519-Schlüsselaustausch pro Verbindung
 - gegenseitige Authentifizierung des vollständigen Handshakes mit einem zufälligen 256-Bit-Schlüssel
 - neue unabhängige Schlüssel für jede Verbindung und Richtung
 - strikte Sequenznummern gegen Replay und Umordnung
-- feste Limits: 8 KiB Text und 8 MiB Audio
+- feste Limits für Text und Audio
 - sichere Rechte für Schlüssel, Tor-Daten und temporäre Klartextdateien
 - keine Geheimnisse in Kommandozeilenargumenten von OpenSSL
 - validierte Onion-v3-Adressen und bereinigte Terminalausgabe
 - keine Shell-Auswertung empfangener oder gespeicherter Werte
-- schlanke Abhängigkeiten: `cryptography` für das Protokoll und `prompt-toolkit` für eine saubere Terminaleingabe
+- schlanke Python-Abhängigkeiten: `cryptography` für das Protokoll und `prompt-toolkit` für die Terminaleingabe
 
 Die genaue Konstruktion und ihre Grenzen beschreibt [SECURITY.md](SECURITY.md).
+
+## Zusätzliche Sicherheits-Härtung ab 2.7
+
+Version 2.7 ergänzt die vorhandenen Schutzmechanismen um zusätzliche Defense-in-Depth-Maßnahmen:
+
+- `direct-call` und `direct-listen` sind auf `127.0.0.1` beziehungsweise `::1` beschränkt; externe Direktverbindungen werden abgelehnt.
+- Ein fremder oder hängenbleibender erster Client beendet den Listener nicht mehr vor einer erfolgreichen Authentifizierung.
+- Kontaktprofile können eigene PSKs verwenden, sodass nicht mehr zwingend ein einziger gemeinsamer Schlüssel für alle Kontakte verwendet werden muss.
+- Ed25519-Identitäten und Fingerprint-Pinning erschweren unbemerkte Identitätswechsel.
+- Der Anrufer verwendet einen Tor-Client-Modus und veröffentlicht nicht unnötig selbst einen Onion Service.
+- Tor-v3-Client-Authorization kann zusätzlich zum OnionCall-Handshake aktiviert werden.
+- Audioeingaben und Decoderaufrufe besitzen zusätzliche Größen-, Format-, Zeit- und Ressourcenlimits.
+- Die lokale Web-GUI verwendet Host-/Origin-Prüfung, Sitzungstoken und zusätzliche Security Header.
+- Linux und Windows besitzen optionale Betriebssystem-Killswitches gegen direkte Clearnet-Verbindungen des OnionCall-Prozesses.
+- Private Update- und Installationspfade verwenden Tor ohne stillen Clearnet-Fallback, sobald Tor verfügbar ist.
+
+Weitere technische Details stehen in:
+
+- [SECURITY-CHANGES-2.6.2.md](SECURITY-CHANGES-2.6.2.md)
+- [SECURITY-CHANGES-2.7.0.md](SECURITY-CHANGES-2.7.0.md)
+- [INSTALLER-CHANGES-2.7.3.md](INSTALLER-CHANGES-2.7.3.md)
+- [INSTALLER-CHANGES-2.7.4.md](INSTALLER-CHANGES-2.7.4.md)
+- [docs/SECURITY-HARDENING-2.6.md](docs/SECURITY-HARDENING-2.6.md)
+- [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md)
 
 ## Installation
 
 ### Welche Setup-Datei soll ich nehmen?
 
-Du brauchst für die automatische Installation nur **eine** der beiden Setup-Dateien. Beide installieren dieselbe sichere Anwendung und laden den vollständigen Quellcode aus diesem Repository. Der Unterschied ist ausschließlich die Bedienoberfläche:
+Du brauchst für die automatische Installation nur **eine** der beiden Setup-Dateien. Beide richten dieselbe Anwendung ein. Der Unterschied ist ausschließlich die Bedienoberfläche:
 
 | Datei | Installation | Anwendung danach | Geeignet für |
 | --- | --- | --- | --- |
-| [`OnionCall-Setup.py`](OnionCall-Setup.py) | lokale grafische Oberfläche im Browser | grafische OnionCall-Oberfläche | Desktop, Smartphone und möglichst wenig Terminaleingaben |
-| [`OnionCall-Terminal-Setup.py`](OnionCall-Terminal-Setup.py) | farbiges nummeriertes Terminalmenü | farbige Terminal-Oberfläche | Systeme ohne geeigneten Browser, SSH und reine Terminal-Nutzung |
+| [`OnionCall-Setup.py`](OnionCall-Setup.py) | lokale grafische Oberfläche im Browser | grafische OnionCall-Oberfläche | Windows, Desktop, Smartphone und möglichst wenig Terminaleingaben |
+| [`OnionCall-Terminal-Setup.py`](OnionCall-Terminal-Setup.py) | farbiges nummeriertes Terminalmenü | Terminal-Oberfläche | Systeme ohne geeigneten Browser, SSH und reine Terminal-Nutzung |
 
 > [!IMPORTANT]
 > Die beiden Dateien sind **Alternativen**. Du musst nicht beide ausführen. Python 3.10 oder neuer muss vorher vorhanden sein, weil Python die gewählte Setup-Datei startet.
 
 ### Setup-Datei 1: Grafische Installation (empfohlen)
 
-Die Datei [`OnionCall-Setup.py`](OnionCall-Setup.py) startet einen ausschließlich lokal erreichbaren Installationsbildschirm im Browser. Sie richtet anschließend die grafische OnionCall-Anwendung ein.
+Die Datei [`OnionCall-Setup.py`](OnionCall-Setup.py) startet einen ausschließlich lokal erreichbaren Installationsbildschirm im Browser. Die OnionCall-Haupt-GUI selbst wird dadurch nicht verändert.
 
-#### Schritt für Schritt
+#### Windows
 
-1. Lade `OnionCall-Setup.py` herunter.
-2. Öffne ein Terminal im Ordner mit der heruntergeladenen Datei.
-3. Starte sie:
+Entpacke das vollständige Repository und öffne PowerShell im Projektordner:
 
-   ```bash
-   python3 OnionCall-Setup.py
-   ```
+```powershell
+py OnionCall-Setup.py
+```
 
-4. Im Browser erscheint **BRZ – OnionCall Setup**. Klicke auf **Installation starten**.
-5. Bestätige unter Linux gegebenenfalls die Administratorfreigabe für Tor und die Audio-Pakete.
-6. Warte, bis der Fortschritt **100 %** und **DONE** anzeigt.
-7. Klicke auf **BRZ – OnionCall öffnen**.
+Danach:
 
-Das grafische Setup erledigt automatisch:
+1. Im Browser erscheint **BRZ – OnionCall Setup**.
+2. Klicke auf **Installation starten**.
+3. Das Setup erstellt die lokale `.venv`.
+4. Fehlt unter Windows Tor, wird einmalig das Tor Expert Bundle vom Tor Project geladen und gegen die fest hinterlegte SHA-256-Prüfsumme geprüft.
+5. Sobald Tor verfügbar ist, werden fehlende Python-Pakete über einen lokalen HTTP-CONNECT-Bridge-Proxy durch Tor geladen.
+6. Das Setup initialisiert OnionCall und richtet – sofern möglich – den Windows-Killswitch ein.
+7. Warte auf **100 % / DONE**.
+8. Klicke auf **BRZ – OnionCall öffnen** oder starte später manuell:
 
-- Erkennung des Betriebssystems,
-- Installation fehlender Systemprogramme wie Git, Tor, Opus und Audio-Werkzeuge,
-- Klonen oder Aktualisieren dieses Repositorys,
-- Erstellen einer getrennten Python-Umgebung,
-- Installation und Diagnose von OnionCall,
-- Erstellen des Programmstarters mit dem BlackRabbitZ-OnionChat-Icon.
+```powershell
+py Start-OnionCall.py
+```
 
-Der Browser dient nur als lokale Bedienoberfläche auf `127.0.0.1`. Das Setup wird nicht ins Internet gestellt und liest oder speichert dein Administratorpasswort nicht.
+Für die Terminal-Oberfläche:
 
-Unter Android/Termux:
+```powershell
+py Start-OnionCall-Terminal.py
+```
+
+OnionCall erzeugt dabei keine eigenen `onioncall.exe`, `onioncall-gui.exe` oder `onioncall-terminal.exe`-Launcher.
+
+#### Linux, macOS und Android/Termux
+
+```bash
+python3 OnionCall-Setup.py
+```
+
+Unter Android/Termux kann der Pfad zum Beispiel so aussehen:
 
 ```bash
 pkg install python
@@ -140,92 +192,90 @@ Der genaue Downloadpfad kann abweichen. Der Dateiname muss auf `.py` und nicht a
 
 ### Setup-Datei 2: Installation vollständig im Terminal
 
-Wenn du keine Browser-Oberfläche möchtest, lade nur [`OnionCall-Terminal-Setup.py`](OnionCall-Terminal-Setup.py) herunter und starte sie im Downloadordner:
+Wenn du keine Browser-Oberfläche möchtest, starte [`OnionCall-Terminal-Setup.py`](OnionCall-Terminal-Setup.py):
 
 ```bash
 python3 OnionCall-Terminal-Setup.py
 ```
 
-Wähle anschließend **1**:
+Unter Windows:
+
+```powershell
+py OnionCall-Terminal-Setup.py
+```
+
+Die Terminal-Variante zeigt Installationsschritte, Diagnose und Fehler direkt im Terminal an. Die eigentliche OnionCall-Oberfläche kann danach weiterhin über die Python-Starter geöffnet werden.
+
+### Windows-Erstinstallation und Tor-Bootstrap
+
+Unter Windows kann eine Erstinstallation ein Bootstrap-Problem haben: Für private Downloads soll Tor benutzt werden, aber Tor ist auf einem frischen Rechner möglicherweise noch nicht installiert.
+
+In diesem Fall lädt der Installer einmalig das offizielle Tor Expert Bundle direkt vom Tor Project. Dieser eine Download kann noch nicht durch Tor laufen, weil Tor zu diesem Zeitpunkt fehlt. Der Download wird gegen eine fest hinterlegte SHA-256-Prüfsumme geprüft. Danach verwendet OnionCall Tor für die weiteren privaten Installationsschritte.
+
+Für pip wird ab 2.7.3 **kein direkter `socks5h://`-Proxy mehr an pip übergeben**.
+
+Ab 2.7.4 erzwingen Installer und Setup-Backend für Python-Unterprozesse UTF-8. Dadurch brechen deutsche Windows-/PowerShell-Umgebungen nicht mehr bei Unicode-Zeichen wie Pfeilen, Auslassungspunkten oder Rahmenzeichen mit `UnicodeEncodeError: charmap` ab. Einige Windows-/pip-/urllib3-Kombinationen brechen dabei mit `proxy_ssl_context`-Fehlern ab. Stattdessen läuft:
 
 ```text
-1  BRZ – OnionCall vollständig installieren oder aktualisieren
-2  Installiertes BRZ – OnionCall Terminal starten
-3  Installationspfad anzeigen
-0  Beenden
+pip
+  ↓
+HTTP CONNECT auf 127.0.0.1
+  ↓
+OnionCall Tor-Bridge
+  ↓
+Tor SOCKS
+  ↓
+Tor-Netzwerk
+  ↓
+PyPI / Zielserver
 ```
 
-Das Terminal-Setup führt dieselben Installationsschritte wie das grafische Setup aus, zeigt Befehle und Fortschritt aber direkt im Terminal. Nach **DONE** kannst du mit **2** die installierte Terminal-Oberfläche starten. Später startest du sie jederzeit mit:
-
-```bash
-onioncall-terminal
-```
-
-Das Terminal-Setup startet keinen lokalen Webserver und öffnet keinen Browser. Auf Linux erhält der Programmstarter ebenfalls das BlackRabbitZ-OnionChat-Icon; innerhalb des Terminals wird weiterhin das farbige Textlogo **BRZ – OnionCall** verwendet.
-
-Unter Android/Termux:
-
-```bash
-pkg install python
-termux-setup-storage
-python ~/storage/downloads/OnionCall-Terminal-Setup.py
-```
-
-Auch hier müssen Python 3.10 oder neuer sowie unter macOS Homebrew bereits verfügbar sein. Termux und Termux:API müssen auf Android als Apps aus derselben vertrauenswürdigen Quelle installiert sein.
-
-> [!IMPORTANT]
-> Wenn du diesen überarbeiteten Stand selbst auf GitHub hochlädst, ersetze dort zuerst den gesamten alten Repository-Inhalt. Beide Setup-Dateien klonen dein GitHub-Repository und verlangen mindestens BRZ – OnionCall 2.5 mit dem neuen Icon.
+TLS wird dabei nicht entschlüsselt oder durch OnionCall terminiert. pip führt die TLS-Verbindung weiterhin selbst bis zum Zielserver; die lokale Bridge transportiert nur die verschlüsselten Bytes durch Tor. Domainnamen werden als SOCKS5-Domain an Tor weitergegeben und nicht lokal aufgelöst.
 
 ### Was vorher installiert sein muss
 
 | Plattform | Vor dem Start der Setup-Datei |
 | --- | --- |
+| Windows | Python 3.10 oder neuer |
 | Fedora, Debian, Ubuntu, Raspberry Pi OS, Arch | Python 3.10 oder neuer |
-| macOS | Python 3.10 oder neuer; Homebrew wird für Tor und Audio benötigt |
+| macOS | Python 3.10 oder neuer; Homebrew wird für Tor und Audio empfohlen |
 | Android/Termux | Termux, Termux:API und `pkg install python`; beide Apps aus derselben vertrauenswürdigen Quelle |
-
-Das Setup installiert Homebrew nicht selbst. Fehlt Homebrew auf macOS, zeigt es einen klaren Hinweis auf die offizielle Website an. Es führt bewusst kein aus dem Internet geladenes Installationsskript mit Administratorrechten aus. Die Android-App **Termux:API** muss als App installiert und die Mikrofonberechtigung erteilt werden; das Termux-Paket `termux-api` installiert nur die passenden Befehle innerhalb von Termux.
 
 ### Was das Setup automatisch erledigt
 
-- erkennt Fedora, Debian/Ubuntu/Raspberry Pi OS, Arch Linux, macOS oder Android/Termux,
-- installiert fehlendes Git, Tor, Opus und die Audio-Werkzeuge mit dem Paketmanager des Systems,
-- klont oder aktualisiert `https://github.com/BlackRabbitZ/OnionCall`,
-- erstellt eine getrennte virtuelle Python-Umgebung,
-- installiert OnionCall und seine Python-Abhängigkeiten,
-- führt Versionsprüfung und `onioncall doctor` aus,
-- erstellt unter Linux einen Anwendungsstarter, unter macOS `~/Applications/OnionCall.command` und unter Termux optional einen Termux:Widget-Starter,
+Das Setup:
+
+- erkennt Windows, Linux, macOS oder Android/Termux,
+- erstellt eine getrennte virtuelle Python-Umgebung `.venv`,
+- sucht nach einer geeigneten Tor-Installation,
+- kann unter Windows bei fehlendem Tor das verifizierte Tor Expert Bundle bootstrapen,
+- lädt fehlende Python-Abhängigkeiten nach dem Tor-Bootstrap über Tor,
+- initialisiert OnionCall und führt die Diagnose aus,
+- bereitet Startskripte vor,
+- richtet auf unterstützten Systemen zusätzliche Killswitch-Härtung ein,
 - zeigt erst dann **DONE** an.
 
-Passwörter werden nicht durch OnionCall abgefragt oder gespeichert. Eine notwendige Administratorfreigabe erfolgt über `pkexec`, `sudo` oder den Mechanismus des Betriebssystems. Die vollständige Ausgabe bleibt im Setup-Fenster sichtbar, damit Fehler nachvollziehbar sind.
-
-Die folgenden Abschnitte beschreiben die **manuelle Alternative**, falls du jeden Installationsschritt selbst ausführen oder das Setup untersuchen möchtest.
+Passwörter werden nicht durch OnionCall abgefragt oder gespeichert. Notwendige Administratorfreigaben erfolgen über den Mechanismus des Betriebssystems.
 
 ### Voraussetzungen
 
-Du musst zuerst zwei Dinge herunterladen beziehungsweise installieren:
+Für die manuelle Installation brauchst du:
 
-1. Systemprogramme für Python, Git, Tor und Audio.
-2. Dieses OnionCall-Repository mit Git oder als ZIP-Datei.
-
-> [!IMPORTANT]
-> **Tor muss installiert sein, bevor OnionCall benutzt wird.** OnionCall liefert Tor nicht mit. Bei `onioncall listen` und `onioncall call` startet OnionCall selbst einen getrennten Tor-Prozess; ein systemweiter Tor-Dienst muss dafür nicht manuell gestartet werden. Prüfe die Installation mit `onioncall doctor`: Bei `tor` muss `[OK]` stehen.
-
-> [!IMPORTANT]
-> `python -m pip install .` installiert das Projekt aus dem **aktuellen Ordner**. Der Punkt `.` bedeutet „dieser Ordner“. Wechsle deshalb zuerst mit `cd OnionCall` in das heruntergeladene Repository. Dort muss die Datei `pyproject.toml` liegen.
-
-Kontrolle vor der Installation:
-
-```bash
-pwd
-ls pyproject.toml
-```
-
-Eine vollständige Schritt-für-Schritt-Anleitung für Fedora, Debian/Ubuntu, Raspberry Pi OS, Arch Linux, macOS und Android/Termux steht in **[docs/INSTALLATION.md](docs/INSTALLATION.md)**. Sie enthält auch Aktualisierung, Deinstallation und Fehlerbehebung.
+1. Python 3.10 oder neuer.
+2. Tor sowie die Audio-Werkzeuge für dein Betriebssystem – oder unter Windows das geführte Setup, das den Tor-Bootstrap übernehmen kann.
+3. Dieses OnionCall-Repository als Git-Checkout oder ZIP-Datei.
 
 ### Systemprogramme nach Plattform
 
-Installiere zuerst die Systemprogramme für dein Betriebssystem. **Jeder der folgenden Befehle installiert auch Tor.**
+#### Windows
+
+Für die normale 2.7.5-Erstinstallation reicht Python 3.10+ aus, weil das grafische Setup Tor bei Bedarf bootstrapen kann. Die Audio-Werkzeuge müssen für vollständige Sprachfunktionen verfügbar sein.
+
+Start:
+
+```powershell
+py OnionCall-Setup.py
+```
 
 #### Fedora
 
@@ -264,48 +314,37 @@ brew install git python tor opus-tools sox
 
 #### Android mit Termux
 
-Installiere **Termux und Termux:API aus derselben Quelle**, vorzugsweise über [F-Droid](https://f-droid.org/packages/com.termux/). Die veraltete Play-Store-Ausgabe von Termux wird nicht unterstützt. Öffne anschließend Termux und führe aus:
+Installiere **Termux und Termux:API aus derselben Quelle**, vorzugsweise über F-Droid. Die veraltete Play-Store-Ausgabe von Termux wird nicht unterstützt.
 
 ```bash
 pkg update
 pkg install git python python-cryptography tor opus-tools sox ffmpeg termux-api
 ```
 
-Für Termux gilt anschließend der [eigene Installationsablauf](#onioncall-unter-android-und-termux-installieren), weil dort `cryptography` als Systempaket verwendet wird.
-
 ### OnionCall unter Linux und macOS installieren
 
-Nach der Installation der passenden Systemprogramme führst du diese Befehle nacheinander aus:
+Manuell:
 
 ```bash
-# Repository herunterladen
 cd ~
 git clone https://github.com/BlackRabbitZ/OnionCall.git
-
-# In den heruntergeladenen Projektordner wechseln
 cd OnionCall
-
-# Prüfen, ob dies wirklich der Projektordner ist
 ls pyproject.toml
-
-# Abgeschlossene Python-Umgebung erstellen und aktivieren
 python3 -m venv .venv
 source .venv/bin/activate
-
-# OnionCall aus genau diesem Ordner installieren
 python -m pip install --upgrade pip
 python -m pip install .
-
-# Einrichten und alle Abhängigkeiten prüfen
-onioncall init
-onioncall doctor
+python -m onioncall.cli init
+python -m onioncall.cli doctor
 ```
 
-Wenn `git clone` meldet, dass der Ordner `OnionCall` bereits existiert, klone nicht erneut. Verwende `cd ~/OnionCall` und folge der [Anleitung zum Aktualisieren](docs/INSTALLATION.md#aktualisieren).
+Alternativ verwendest du direkt das geführte Setup:
+
+```bash
+python3 OnionCall-Setup.py
+```
 
 ### OnionCall unter Android und Termux installieren
-
-Nach der oben beschriebenen Installation der Termux-Pakete:
 
 ```bash
 cd ~
@@ -315,95 +354,103 @@ ls pyproject.toml
 python -m venv --system-site-packages .venv
 source .venv/bin/activate
 python -m pip install .
-onioncall init
-onioncall doctor
+python -m onioncall.cli init
+python -m onioncall.cli doctor
 ```
 
 ### Nach dem nächsten Terminalstart
 
-OnionCall muss nicht erneut installiert werden. Aktiviere nur wieder die vorhandene Umgebung:
+OnionCall muss nicht erneut installiert werden.
+
+Linux/macOS/Termux:
 
 ```bash
 cd ~/OnionCall
 source .venv/bin/activate
-onioncall doctor
+python -m onioncall.cli doctor
+```
+
+Windows:
+
+```powershell
+py Start-OnionCall.py
 ```
 
 ### Wenn Tor fehlt
 
-Wenn `doctor` bei `tor` `[FEHLT]` anzeigt, wurde Tor nicht installiert oder ist nicht über den Suchpfad erreichbar. Installiere das Paket `tor` mit dem oben gezeigten Befehl für dein System und führe `onioncall doctor` erneut aus. Die ausführliche [Installationsanleitung](docs/INSTALLATION.md) beschreibt zusätzlich ZIP-Download, Aktualisierung, Deinstallation und weitere Fehlerfälle.
+Wenn `doctor` bei Tor `[FEHLT]` anzeigt:
+
+- unter Windows zuerst `py OnionCall-Setup.py` ausführen; das Setup kann Tor automatisch bootstrapen,
+- unter Linux/macOS/Termux Tor mit dem Paketmanager installieren,
+- alternativ `ONIONCALL_TOR_BINARY` auf den vollständigen Pfad zur Tor-Binärdatei setzen.
 
 ## OnionCall mit der GUI benutzen
 
 ### Erster Start
 
-Nach der automatischen Installation öffnest du OnionCall direkt mit **OnionCall öffnen**. Später verwendest du den angelegten Anwendungsstarter oder startest:
+Nach der automatischen Installation öffnest du OnionCall über **BRZ – OnionCall öffnen** oder später direkt mit Python.
 
-```bash
-onioncall-gui
+Windows:
+
+```powershell
+py Start-OnionCall.py
 ```
 
-Wenn dieser Befehl nicht im Suchpfad liegt, funktioniert der vollständige Starter unter Linux und Termux:
+Linux/macOS/Termux:
 
 ```bash
-~/.local/bin/onioncall-gui
+python3 Start-OnionCall.py
 ```
 
-Auch `onioncall` oder `onioncall gui` öffnet die grafische Oberfläche. Sie zeigt sofort den Status von Tor, Verbindungsschlüssel, Audio und Verbindung an. Tor wird beim Klick auf **Empfangen** oder **Anrufen** automatisch als eigener Prozess gestartet und beim Beenden wieder gestoppt; ein systemweiter Tor-Dienst muss nicht manuell laufen.
+Alternativ innerhalb der eingerichteten virtuellen Umgebung:
+
+```bash
+python -m onioncall.cli gui
+```
+
+Die Oberfläche zeigt den Status von Tor, Verbindungsschlüssel, Audio und Verbindung an. Tor wird beim Empfangen oder Anrufen automatisch als eigener Prozess gestartet und beim Beenden wieder gestoppt.
+
+Die Statuspunkte verwenden ab 2.7.5 eine eindeutige Ampellogik: **Rot** = nicht gestartet, fehlt oder Fehler; **Gelb** = wartet, verbindet oder ist vorübergehend beschäftigt; **Grün** = aktiv, bereit oder verbunden. Ein aktiver Tor-Prozess wird deshalb grün angezeigt.
 
 ### Zwei Geräte ohne Terminalbefehle verbinden
 
 1. Öffne OnionCall auf beiden Geräten.
-2. Klicke auf **Gerät A** auf **Schlüssel anzeigen** und kopiere die vollständige Zeile `onioncall:v2:…`.
-3. Übertrage diesen geheimen Schlüssel über einen bereits sicheren Kanal an Gerät B. Klicke dort auf **Schlüssel importieren**, füge ihn ein und wähle **Sicher speichern**.
+2. Klicke auf **Gerät A** auf **Schlüssel anzeigen** und kopiere die vollständige Zeile `onioncall:v2:…` beziehungsweise den Schlüssel des ausgewählten Kontaktprofils.
+3. Übertrage diesen geheimen Schlüssel über einen bereits sicheren Kanal an Gerät B. Klicke dort auf **Schlüssel importieren** und speichere ihn sicher.
 4. Klicke auf Gerät A auf **Empfangen**. Warte, bis Tor aktiv ist und unter **Meine Onion-Adresse** eine Adresse erscheint.
 5. Kopiere genau diese Empfängeradresse und sende sie an Gerät B. Unterschiedliche eigene Onion-Adressen auf beiden Geräten sind normal.
 6. Klicke auf Gerät B auf **Onion-Adresse anrufen**, füge ausschließlich die von Gerät A angezeigte Adresse ein und wähle **Verbinden**.
-7. Nach **Sichere Sitzung hergestellt** kannst du Text im Nachrichtenfeld senden oder mit **Audio 5 s** eine Sprachnachricht aufnehmen.
-8. Mit **Verbindung beenden** werden Sitzung und die zugehörige Tor-Instanz beendet. **OnionCall beenden** schließt anschließend auch den lokalen GUI-Prozess.
+7. Nach **Sichere Sitzung hergestellt** kannst du Text senden oder eine Sprachnachricht aufnehmen.
+8. Mit **Verbindung beenden** werden Sitzung und die zugehörige Tor-Instanz beendet.
 
 > [!CAUTION]
-> Der Verbindungsschlüssel ist geheim; die Onion-Adresse ist die erreichbare Adresse des aktuellen Empfängers. Füge niemals eine `.onion`-Adresse in den Schlüsseldialog und niemals `onioncall:v2:…` in den Anrufdialog ein.
+> Der Verbindungsschlüssel ist geheim; die Onion-Adresse ist die erreichbare Adresse des aktuellen Empfängers. Füge niemals eine `.onion`-Adresse in den Schlüsseldialog und niemals einen geheimen Verbindungsschlüssel in den Anrufdialog ein.
 
 ### Terminal-Oberfläche als Alternative
 
-Die vollständige Terminal-Oberfläche ist für Geräte ohne geeigneten Browser verfügbar:
+Windows:
 
-```bash
-onioncall menu
+```powershell
+py Start-OnionCall-Terminal.py
 ```
 
-Sie bietet Empfangen, Anrufen, Onion-Adresse, Schlüsselverwaltung, Audiotest, Diagnose und Einstellungen als nummerierte Auswahl. Die direkten Befehle wie `onioncall listen` und `onioncall call …` bleiben für erfahrene Benutzer und Skripte verfügbar. Die folgende ausführliche Terminalanleitung erklärt weiterhin jeden Einzelschritt.
+Linux/macOS/Termux:
+
+```bash
+python3 Start-OnionCall-Terminal.py
+```
+
+Die direkten CLI-Befehle bleiben für erfahrene Benutzer und Skripte verfügbar:
+
+```bash
+python -m onioncall.cli --help
+```
 
 ## OnionCall vollständig im Terminal benutzen
 
-Nach der Terminal-Installation startest du die Anwendung jederzeit mit:
+Die Terminal-Oberfläche bietet Empfangen, Anrufen, Onion-Adresse, Schlüsselverwaltung, Audiotest, Diagnose und Einstellungen als nummerierte Auswahl.
 
-```bash
-onioncall-terminal
-```
-
-Alternativ funktionieren:
-
-```bash
-onioncall terminal
-onioncall menu
-```
-
-Das vollständige Menü enthält:
-
-```text
-1  Gespräch empfangen
-2  Person anrufen
-3  Meine Onion-Adresse anzeigen
-4  Verbindungsschlüssel verwalten
-5  Audio testen (3 Sekunden)
-6  Installation ausführlich prüfen
-7  Einstellungen
-0  Beenden
-```
-
-Oberhalb des Menüs stehen bei jedem Durchlauf der aktuelle Zustand von Tor, Verbindungsschlüssel und Audio sowie die gespeicherte Onion-Adresse. Beim Empfangen startet OnionCall Tor automatisch, zeigt die erreichbare Adresse und wartet auf eine Verbindung. Beim Anrufen wird die Empfängeradresse abgefragt. Nach erfolgreicher Authentifizierung läuft der Chat vollständig im Terminal:
+Innerhalb einer Sitzung:
 
 ```text
 Hallo                         Text senden
@@ -412,13 +459,7 @@ q                             Sitzung beenden
 /help                         alle Chatbefehle anzeigen
 ```
 
-Es wird dabei weder eine Web-GUI noch ein Browser benötigt.
-
-Die Terminal-Ausgabe verwendet automatisch Farben: Magenta und Cyan für die Marke und Navigation, Grün für erfolgreiche Prüfungen, Gelb für laufende Aktionen und Rot für Fehler. Bei Umleitung in eine Datei oder CI-Ausgaben werden keine Farbcodes geschrieben. Farben lassen sich ausdrücklich abschalten:
-
-```bash
-NO_COLOR=1 onioncall-terminal
-```
+Die Terminal-Ausgabe verwendet automatisch Farben. Bei Umleitung in Dateien oder CI-Ausgaben werden keine Farbcodes benötigt. Farben lassen sich mit `NO_COLOR=1` deaktivieren.
 
 ## Zwei Geräte Schritt für Schritt einrichten
 
@@ -426,176 +467,109 @@ Für ein Gespräch brauchst du zwei Geräte mit installiertem OnionCall. Im folg
 
 ### Rollen und Adressen verstehen
 
-| Gerät | Rolle in diesem Beispiel | Befehl | Verwendete Onion-Adresse |
+| Gerät | Rolle in diesem Beispiel | Aktion | Verwendete Onion-Adresse |
 | --- | --- | --- | --- |
-| Gerät A | Empfänger | `onioncall listen` | zeigt seine eigene Empfängeradresse an |
-| Gerät B | Anrufer | `onioncall call ADRESSE.onion` | verwendet exakt die von Gerät A angezeigte Adresse |
+| Gerät A | Empfänger | `listen` | zeigt seine eigene Empfängeradresse an |
+| Gerät B | Anrufer | `call ADRESSE.onion` | verwendet exakt die von Gerät A angezeigte Adresse |
 
 > [!IMPORTANT]
-> **Jedes Gerät besitzt eine eigene Onion-Adresse. Unterschiedliche Adressen sind normal und richtig.** Angerufen wird ausschließlich die Adresse, die aktuell beim Empfänger nach `onioncall listen` steht. Verwende niemals die eigene Adresse des Anrufers, eine Adresse eines anderen Geräts oder eine Adresse aus einer gelöschten beziehungsweise neu eingerichteten Installation.
+> **Jedes Gerät besitzt eine eigene Onion-Adresse. Unterschiedliche Adressen sind normal und richtig.** Angerufen wird ausschließlich die Adresse, die aktuell beim Empfänger angezeigt wird.
 
 Der Verbindungsschlüssel und die Onion-Adresse haben verschiedene Aufgaben:
 
-- Der **Verbindungsschlüssel** muss auf beiden Geräten identisch sein und authentifiziert das Gespräch. Er ist geheim.
-- Die **Onion-Adresse** bezeichnet nur das Gerät, das gerade mit `onioncall listen` empfängt. Die beiden Geräte müssen nicht dieselbe Onion-Adresse haben.
+- Der **Verbindungsschlüssel** authentifiziert das Gespräch und ist geheim.
+- Die **Onion-Adresse** bezeichnet das Gerät, das gerade empfängt.
 
 ### Schritt 1: Installation auf beiden Geräten prüfen
 
-Aktiviere auf **beiden Geräten** die virtuelle Umgebung. Bei einer ZIP-Installation kann der Ordner stattdessen `~/OnionCall-main` heißen.
+Windows:
 
-```bash
-cd ~/OnionCall
-source .venv/bin/activate
-onioncall doctor
+```powershell
+.venv\Scripts\python.exe -m onioncall.cli doctor
 ```
 
-Fahre erst fort, wenn `doctor` Tor, Audio, Datenverzeichnis und Verbindungsschlüssel mit `[OK]` meldet. Ein systemweiter Tor-Dienst muss nicht manuell gestartet werden; OnionCall startet seinen eigenen Tor-Prozess.
+Linux/macOS/Termux:
+
+```bash
+.venv/bin/python -m onioncall.cli doctor
+```
+
+Fahre erst fort, wenn Tor, Datenverzeichnis und Verbindungsschlüssel korrekt erkannt werden.
 
 ### Schritt 2: Gemeinsamen Verbindungsschlüssel einrichten
 
-Beide Geräte müssen exakt denselben Verbindungsschlüssel verwenden. Übertrage ihn so:
-
 #### 2.1 Schlüssel auf Gerät A anzeigen
 
-Auf **Gerät A** einen Schlüssel erzeugen und anzeigen:
+Windows:
+
+```powershell
+.venv\Scripts\python.exe -m onioncall.cli init
+.venv\Scripts\python.exe -m onioncall.cli show-secret --confirm
+```
+
+Linux/macOS/Termux:
 
 ```bash
-onioncall init
-onioncall show-secret --confirm
+.venv/bin/python -m onioncall.cli init
+.venv/bin/python -m onioncall.cli show-secret --confirm
 ```
 
-Falls `onioncall init` meldet, dass `conversation.key` bereits existiert, ist schon ein Schlüssel eingerichtet. Das ist kein Defekt. Zeige ihn einfach mit `onioncall show-secret --confirm` an. Gib jeden Befehl einzeln ein; `~` ist kein Trennzeichen zwischen Befehlen.
-
-Die Ausgabe ist eine einzelne lange Zeile, beispielsweise:
-
-```text
-onioncall:v2:HIER-STEHT-DER-LANGE-GEHEIME-SCHLUESSEL
-```
-
-Kopiere die Zeile:
-
-- vollständig vom Anfang `onioncall:v2:` bis zum letzten Zeichen,
-- ohne den Shell-Prompt wie `(.venv) [user@computer OnionCall]$`,
-- ohne Anführungszeichen, Zeilenumbruch oder zusätzliche Leerzeichen,
-- ohne andere Terminalausgaben davor oder dahinter.
-
-Übermittle ausschließlich diese vollständige Zeichenfolge **über einen bereits sicheren, vertrauenswürdigen Kanal** an Gerät B.
+Die Ausgabe enthält eine einzelne lange Schlüsselzeile. Übermittle ausschließlich diese vollständige Zeichenfolge **über einen bereits sicheren, vertrauenswürdigen Kanal** an Gerät B.
 
 #### 2.2 Schlüssel auf Gerät B importieren
 
-Auf **Gerät B** den Schlüssel über die verdeckte Eingabe importieren:
+Windows:
+
+```powershell
+.venv\Scripts\python.exe -m onioncall.cli set-secret
+```
+
+Linux/macOS/Termux:
 
 ```bash
-onioncall set-secret --replace
+.venv/bin/python -m onioncall.cli set-secret
 ```
 
-Gib diesen Befehl **genau einmal** ein und drücke Enter. Wenn links im Prompt bereits `(.venv)` steht, ist die virtuelle Umgebung schon aktiv; `source .venv/bin/activate` muss dann nicht erneut ausgeführt werden.
-
-So sieht der Ablauf im Terminal aus:
-
-```text
-(.venv) [user@computer OnionCall]$ onioncall set-secret --replace
-Verbindungsschlüssel (Eingabe bleibt unsichtbar):
-Verbindungsschlüssel sicher gespeichert.
-```
-
-Zwischen der zweiten und dritten Zeile fügst du den Schlüssel ein und drückst Enter. Der eingefügte Schlüssel wird nicht dargestellt.
-
-OnionCall zeigt danach:
-
-```text
-Verbindungsschlüssel (Eingabe bleibt unsichtbar):
-```
-
-Füge jetzt die vollständige Zeile `onioncall:v2:…` ein und drücke **einmal Enter**. Beim Einfügen werden absichtlich weder Buchstaben noch Punkte oder Sternchen angezeigt. Das ist normal und schützt den Schlüssel vor Blicken auf den Bildschirm.
-
-Bei erfolgreichem Import erscheint:
-
-```text
-Verbindungsschlüssel sicher gespeichert.
-```
-
-Falls stattdessen eine Fehlermeldung erscheint, führe den Import erneut aus und achte darauf, ausschließlich die vollständige Schlüsselzeile einzufügen.
-
-> [!WARNING]
-> Kopiere nicht den gesamten Ordner `~/.config/onioncall` zwischen den Geräten. Importiere nur die Zeichenfolge `onioncall:v2:…` mit der verdeckten Abfrage von `onioncall set-secret --replace`. Veröffentliche den Schlüssel nicht in Gruppen, Screenshots oder unverschlüsselter E-Mail. Wer ihn besitzt, kann sich als Gesprächspartner ausgeben.
-
-Gib den Schlüssel nicht direkt hinter dem Befehl ein. Die aktuelle Version weist zusätzliche Argumente ab:
-
-```bash
-# Unsicher – nicht verwenden:
-onioncall set-secret onioncall:v2:GEHEIMER-SCHLUESSEL --replace
-```
-
-Diese Schreibweise könnte den Schlüssel in der Shell-History und in Prozessinformationen hinterlassen. Verwende immer nur `onioncall set-secret --replace` und füge den Schlüssel anschließend in die unsichtbare Eingabe ein.
-
-Wiederhole auch nicht versehentlich den Befehl in derselben Zeile:
-
-```bash
-# Falsch – der Befehl steht doppelt:
-onioncall set-secret --replace onioncall set-secret --replace
-```
-
-Das führt zu `onioncall: error: unrecognized arguments: set-secret`. Drücke in diesem Fall nicht weiter, sondern gib in einer neuen Zeile nur einmal `onioncall set-secret --replace` ein.
+Die Eingabe bleibt absichtlich unsichtbar. Gib den geheimen Schlüssel nicht als zusätzliches Kommandozeilenargument ein, damit er nicht in Shell-History oder Prozessinformationen landet.
 
 #### 2.3 Import prüfen
 
-Prüfe auf Gerät B, ob der Schlüssel vorhanden ist und sichere Dateirechte besitzt:
-
 ```bash
-onioncall doctor
+python -m onioncall.cli doctor
 ```
 
-Die Zeile zum Verbindungsschlüssel muss `[OK]` anzeigen. `doctor` zeigt den geheimen Schlüssel selbst nicht an.
-
-Für einen neuen Gesprächskreis erzeugst du mit `onioncall init --replace` bewusst einen neuen Schlüssel und importierst ihn anschließend auf allen beteiligten Geräten.
+`doctor` zeigt den geheimen Schlüssel selbst nicht an.
 
 ### Schritt 3: Empfänger starten
 
-Auf **Gerät A**:
-
 ```bash
-onioncall listen
+python -m onioncall.cli listen
 ```
 
-OnionCall startet eine eigene Tor-Instanz. Warte, bis beispielsweise Folgendes erscheint:
-
-```text
-Deine Onion-Adresse: abcdef…xyz.onion
-Warte auf eine eingehende Verbindung …
-```
-
-Lass dieses Terminal geöffnet. Wird `listen` beendet, ist der Empfänger nicht mehr erreichbar.
+OnionCall startet eine eigene Tor-Instanz und zeigt die Onion-Adresse des Empfängers an.
 
 ### Schritt 4: Empfängeradresse übertragen
 
-Übermittle die vollständige, bei **Gerät A** angezeigte Adresse an Gerät B. Vergleiche sie vor dem Anruf Zeichen für Zeichen. Eine Onion-v3-Adresse besteht vor `.onion` aus 56 Zeichen.
-
-> [!CAUTION]
-> Die Adresse auf Gerät B kann anders aussehen. Das ist kein Fehler. Gerät B darf nicht seine eigene Adresse anrufen, sondern muss die gerade von Gerät A angezeigte Empfängeradresse verwenden.
+Übermittle die vollständige, beim Empfänger angezeigte Adresse an Gerät B. Eine Onion-v3-Adresse besteht vor `.onion` aus 56 Zeichen.
 
 ### Schritt 5: Vom Anrufer Verbindung aufbauen
 
-Während `onioncall listen` auf Gerät A weiterläuft, auf **Gerät B** ausführen:
-
 ```bash
-onioncall call HIER-DIE-ADRESSE-VON-GERÄT-A.onion
+python -m onioncall.cli call HIER-DIE-ADRESSE-VON-GERÄT-A.onion
 ```
 
-Ersetze den gesamten Platzhalter durch die Adresse des Empfängers. Kein `https://`, keine Leerzeichen und keine zusätzlichen Zeichen anhängen.
+Kein `https://`, keine Leerzeichen und keine zusätzlichen Zeichen anhängen.
 
-Der Fehler `SOCKS-Code 4` bedeutet, dass Tor das Ziel nicht erreichen konnte. Prüfe dann zuerst:
+Ein SOCKS-Fehler bedeutet, dass Tor das Ziel nicht erreichen konnte. Prüfe dann zuerst:
 
-1. Wurde wirklich die aktuell auf dem Empfänger angezeigte Adresse verwendet?
-2. Läuft `onioncall listen` auf dem Empfänger noch?
-3. Sind beide Geräte mit dem Internet verbunden und zeigt `onioncall doctor` Tor als `[OK]`?
-4. Wurde möglicherweise die eigene Adresse des Anrufers oder eine Adresse aus einer früheren Installation verwendet?
-
-Ein falscher Verbindungsschlüssel verursacht keinen SOCKS-Code 4. Er wird erst nach einer erfolgreichen Tor-Verbindung geprüft und führt dann zu einem Authentifizierungsfehler.
+1. Wurde wirklich die aktuell angezeigte Empfängeradresse verwendet?
+2. Läuft der Empfänger noch?
+3. Sind beide Geräte mit dem Internet verbunden und erkennt `doctor` Tor?
+4. Wurde versehentlich die eigene Onion-Adresse oder eine veraltete Adresse verwendet?
 
 ### Schritt 6: Nachrichten und Sprache verwenden
 
-Nach erfolgreicher gegenseitiger Authentifizierung ist die Bedienung vereinfacht:
+Nach erfolgreicher gegenseitiger Authentifizierung:
 
 ```text
 Hallo                         Text direkt senden
@@ -603,43 +577,169 @@ a                             fünf Sekunden aufnehmen und senden
 q                             Sitzung sicher beenden
 ```
 
-Eingehende Nachrichten erscheinen sauber oberhalb der Zeile `Du >`. Wenn während des Tippens eine Nachricht ankommt, bleiben dein Prompt und der bereits geschriebene Text erhalten. Gesendete und empfangene Inhalte sind eindeutig markiert:
+Ausführliche Befehle:
 
 ```text
-[Gegenstelle] Hallo
-[Du] Meine Antwort
-Du >
-```
-
-Die bisherigen ausführlichen Befehle bleiben ebenfalls verfügbar:
-
-```text
-/text Hallo                 Text senden
-/say 5                      fünf Sekunden aufnehmen und senden
-/help                       Hilfe anzeigen
-/quit                       Sitzung sicher beenden
+/text Hallo                   Text senden
+/say 5                        fünf Sekunden aufnehmen und senden
+/help                         Hilfe anzeigen
+/quit                         Sitzung sicher beenden
 ```
 
 ### Nächster Anruf und Rollenwechsel
 
-Eine Sitzung nimmt genau eine Verbindung an. Für ein weiteres Gespräch startet der Empfänger erneut `onioncall listen`. Die Adresse bleibt normalerweise gleich, solange dessen OnionCall-Datenverzeichnis nicht gelöscht oder ersetzt wird; maßgeblich ist trotzdem immer die aktuell angezeigte Adresse.
-
-Die Rollen können wechseln: Soll Gerät B der Empfänger sein, startet Gerät B `onioncall listen` und Gerät A ruft anschließend genau die dabei auf Gerät B angezeigte Adresse an.
+Eine Sitzung nimmt eine Verbindung an. Für ein weiteres Gespräch startet der Empfänger erneut `listen`. Die Rollen können jederzeit wechseln.
 
 ### Lokaler Funktionstest ohne Tor
 
-Für einen lokalen Funktionstest ohne Tor gibt es die absichtlich nicht beworbenen Diagnosebefehle:
+Für lokale Entwicklung existieren die Diagnosebefehle:
 
 ```bash
-onioncall direct-listen --port 17777
-onioncall direct-call 127.0.0.1 17777
+python -m onioncall.cli direct-listen --port 17777
+python -m onioncall.cli direct-call 127.0.0.1 17777
 ```
 
-Diese direkte Verbindung schützt den Inhalt kryptografisch, verbirgt aber **keine IP-Adresse** und ist nur zum Testen gedacht.
+Ab 2.7 sind diese Befehle **strikt auf Loopback beschränkt**. Externe IP-Adressen oder `0.0.0.0` werden abgelehnt. Dadurch können die Diagnosebefehle nicht versehentlich als Clearnet-Verbindung zu einer Gegenstelle verwendet werden.
+
+## Kontaktprofile und getrennte Schlüssel
+
+Statt eines einzigen gemeinsamen PSK können unterschiedliche Kontakte getrennte Profile erhalten.
+
+```bash
+python -m onioncall.cli peer-add alice
+python -m onioncall.cli show-secret --peer alice --confirm
+```
+
+Auf der Gegenseite:
+
+```bash
+python -m onioncall.cli set-secret --peer alice
+```
+
+Verbindung:
+
+```bash
+python -m onioncall.cli listen --peer alice
+python -m onioncall.cli call ADRESSE.onion --peer alice
+```
+
+Profile anzeigen:
+
+```bash
+python -m onioncall.cli peer-list
+```
+
+Das reduziert die Auswirkungen eines kompromittierten einzelnen Kontaktschlüssels.
+
+## Tor v3 Client Authorization
+
+Tor-v3-Client-Authorization ist eine zusätzliche optionale Schutzschicht **vor** dem OnionCall-Handshake. Ein Client ohne passenden Tor-Autorisierungsschlüssel erreicht den Onion Service dann gar nicht erst.
+
+Auf dem Empfänger für einen Kontakt erzeugen:
+
+```bash
+python -m onioncall.cli tor-auth-create alice
+```
+
+Auf dem Client importieren:
+
+```bash
+python -m onioncall.cli tor-auth-import EMPFAENGERADRESSE.onion --name alice
+```
+
+Autorisierungen anzeigen:
+
+```bash
+python -m onioncall.cli tor-auth-list
+```
+
+Öffentliche Autorisierung eines Clients widerrufen:
+
+```bash
+python -m onioncall.cli tor-auth-revoke alice
+```
+
+Private Client-Autorisierung entfernen:
+
+```bash
+python -m onioncall.cli tor-auth-remove-client EMPFAENGERADRESSE.onion
+```
+
+> [!IMPORTANT]
+> Tor Client Authorization ersetzt nicht den OnionCall-PSK oder die Ende-zu-Ende-Verschlüsselung. Sie ist eine zusätzliche Tor-Schicht davor.
+
+## Temporäre Onion-Adresse
+
+Für Sitzungen, in denen keine dauerhafte Onion-Adresse benötigt wird:
+
+```bash
+python -m onioncall.cli listen --peer alice --temporary-onion
+```
+
+Der zugehörige Onion-Service-Schlüssel wird für diese Laufzeit erzeugt und nicht als dauerhafte Identität weiterverwendet.
+
+## OS-Killswitch
+
+Der Killswitch ist eine zusätzliche Betriebssystem-Schutzschicht. Selbst wenn ein zukünftiger Programmierfehler versehentlich eine direkte Netzwerkverbindung erzeugt, soll der OnionCall-Prozess nicht am lokalen Tor vorbeikommunizieren können.
+
+### Linux-Killswitch
+
+```bash
+scripts/onioncall-killswitch-linux.sh listen --peer alice
+```
+
+oder:
+
+```bash
+scripts/onioncall-killswitch-linux.sh call ADRESSE.onion --peer alice
+```
+
+Der OnionCall-Prozess darf im gehärteten Modus nur Loopback erreichen. Tor läuft separat und darf ins Internet. Kann die notwendige Isolation nicht aufgebaut werden, soll das Skript ohne unsicheren Fallback abbrechen.
+
+### Windows-Killswitch
+
+Windows verwendet dafür Windows Defender Firewall-Regeln für die **projektspezifische** virtuelle Python-Umgebung:
+
+```text
+OnionCall\.venv\Scripts\python.exe
+```
+
+Dadurch wird nicht die globale Python-Installation des Benutzers gesperrt.
+
+Prinzip:
+
+```text
+OnionCall-Python → 127.0.0.1 / ::1     erlaubt
+OnionCall-Python → lokaler Tor-SOCKS   erlaubt
+OnionCall-Python → direktes Internet   blockiert
+Tor              → Internet            erlaubt
+```
+
+Das Setup kann dafür eine Administratorfreigabe benötigen.
+
+## Private Installation und Updates über Tor
+
+Nach vorhandenem Tor sollen Paket- und Updatezugriffe nicht still auf Clearnet zurückfallen.
+
+Linux/macOS:
+
+```bash
+scripts/private-update.sh
+```
+
+Windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\private-update-windows.ps1
+```
+
+Ab 2.7.3 verwendet der Windows-Installer für pip den lokalen Tor-HTTP-CONNECT-Bridge-Proxy aus `scripts/tor_http_proxy.py`. Dadurch wird der problematische direkte pip-SOCKS-Pfad vermieden, ohne TLS abzuschalten.
 
 ## Konfiguration und Dateien
 
 Standardpfad ist `~/.config/onioncall`. Für Tests kann `ONIONCALL_HOME` auf ein anderes Verzeichnis zeigen.
+
+Beispiel:
 
 ```json
 {
@@ -651,15 +751,29 @@ Standardpfad ist `~/.config/onioncall`. Für Tests kann `ONIONCALL_HOME` auf ein
 }
 ```
 
-`last_address` speichert nur die zuletzt angerufene Onion-Adresse, damit sie im Menü nicht erneut eingefügt werden muss. Der Verbindungsschlüssel wird getrennt gespeichert. OnionCall lehnt einen Schlüssel ab, wenn dessen Dateirechte anderen lokalen Benutzern Zugriff geben. `onioncall doctor` kontrolliert Installation und Berechtigungen.
+`last_address` speichert nur die zuletzt angerufene Onion-Adresse. Verbindungsschlüssel, Identitäten, Kontaktprofile und Tor-Autorisierungen werden getrennt gespeichert. OnionCall prüft sensible Dateien auf sichere Rechte, soweit das Betriebssystem dies unterstützt.
 
 ## Tests und Entwicklung
+
+Sicherheitstests:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Die Tests prüfen unter anderem erfolgreichen und abgewiesenen Handshake, falsche Schlüssel, AEAD-Manipulation, Replay, Größenlimits, private Dateirechte, Onion-Validierung und Terminal-Steuerzeichen.
+Die Tests prüfen unter anderem:
+
+- erfolgreichen und abgewiesenen Handshake,
+- falsche Schlüssel,
+- AEAD-Manipulation und Replay,
+- Größenlimits,
+- Onion-Validierung,
+- Loopback-Beschränkung des Direktmodus,
+- Listener-Verhalten bei fehlgeschlagener Authentifizierung,
+- Tor-Konfiguration,
+- Tor-v3-Client-Authorization,
+- lokale Web-GUI-Sicherheitsprüfungen,
+- den HTTP-CONNECT-zu-Tor-Installationspfad.
 
 Für die vollständigen Entwicklungsprüfungen:
 
@@ -676,16 +790,18 @@ Beiträge sind willkommen. Lies vorher [CONTRIBUTING.md](CONTRIBUTING.md) und me
 ## Bekannte Grenzen
 
 - Noch kein unabhängiges Sicherheitsaudit; daher keine Garantie für Hochrisikoeinsätze.
-- Kein Gruppenrelay, kein Voice Changer und keine Cipher-Auswahl. Weniger Optionen reduzieren Angriffsfläche und Fehlkonfigurationen.
-- Eine Sitzung nimmt genau eine eingehende Verbindung an. Danach kann `listen` erneut gestartet werden.
 - Tor schützt nicht vor globaler zeitlicher Verkehrskorrelation.
-- Ein kompromittiertes Gerät kann Sprache und Schlüssel vor beziehungsweise nach der Verschlüsselung auslesen.
-- Die Bedienung nutzt zeitlich begrenzte Aufnahmen statt einer globalen PTT-Taste. Das funktioniert konsistent auf allen drei Plattformen und vermeidet globale Tastatur-Hooks.
+- Ein kompromittiertes Gerät kann Inhalte und Schlüssel vor beziehungsweise nach der Verschlüsselung auslesen.
+- Audio wird weiterhin über externe Audio-/Codec-Werkzeuge verarbeitet; zusätzliche Limits reduzieren die Angriffsfläche, ersetzen aber keinen vollständigen Decoder-Sandbox-Audit.
+- macOS und Termux besitzen derzeit keinen gleichwertigen OS-Netzwerk-Killswitch wie die Linux-/Windows-Härtung.
+- Tor-v3-Client-Authorization erhöht die Zugangssicherheit, macht Schlüsselverteilung aber komplexer und ist deshalb optional.
 - Die grafische Oberfläche läuft im lokalen Standardbrowser. Sie ist keine signierte native App und muss zusammen mit dem lokalen OnionCall-Prozess geöffnet bleiben.
 
 ## Projektstatus
 
-Version 2.5.0 ist ein gehärtetes, getestetes MVP mit BlackRabbitZ-OnionChat-Icon, farbiger Terminal- und lokaler Browser-Oberfläche. Vor einer sicherheitskritischen Veröffentlichung sind mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Linux, macOS und mehreren Android-Versionen notwendig.
+Version 2.7.5 baut auf dem bestehenden OnionCall-MVP auf und ergänzt insbesondere IP-Leak-Resistenz, Loopback-only-Diagnosepfade, Listener-Härtung, Kontaktprofile, Identitäts-Pinning, Tor-v3-Client-Authorization, Linux-/Windows-Killswitches sowie einen privaten Windows-Installerpfad über Tor.
+
+Die sichtbare OnionCall-Haupt-GUI wurde für diese Sicherheitsarbeiten nicht neu gestaltet. Vor einer sicherheitskritischen Veröffentlichung sind weiterhin mindestens eine unabhängige Kryptografieprüfung, Fuzzing des Frame-Parsers und reale Integrationstests auf Windows, Linux, macOS und Android/Termux sinnvoll.
 
 ## Urheber und Lizenz
 

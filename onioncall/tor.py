@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import os
 import re
 import shutil
@@ -7,8 +8,10 @@ import socket
 import struct
 import subprocess
 import time
+from contextlib import suppress
 from pathlib import Path
 
+from .client_auth import client_auth_dir, client_authorization_available, prepare_service_authorizations
 from .config import Config, app_home, ensure_private_dir
 
 ONION_RE = re.compile(r"^[a-z2-7]{56}\.onion$")
@@ -25,73 +28,110 @@ def validate_onion(address: str) -> str:
             "Das ist ein Verbindungsschlüssel, keine Onion-Adresse. "
             "Zum Anrufen die beim Empfänger angezeigte Adresse mit `.onion` verwenden."
         )
-    address = address.removeprefix("http://").removeprefix("https://")
-    address = address.rstrip("/")
+    address = address.removeprefix("http://").removeprefix("https://").rstrip("/")
     if not ONION_RE.fullmatch(address):
         raise TorError("Erwartet wird eine gültige Onion-v3-Adresse mit 56 Zeichen")
     return address
 
 
+def validate_loopback_host(host: str) -> str:
+    try:
+        address = ipaddress.ip_address(host.strip())
+    except ValueError as exc:
+        raise TorError("Direktmodus akzeptiert ausschließlich die literalen Loopback-Adressen 127.0.0.1 oder ::1") from exc
+    if not address.is_loopback:
+        raise TorError("Direktmodus ist absichtlich auf Loopback beschränkt; externe Ziele würden Tor umgehen")
+    return str(address)
+
+
+def loopback_connect(host: str, port: int, timeout: float = 20.0) -> socket.socket:
+    return socket.create_connection((validate_loopback_host(host), port), timeout=timeout)
+
+
 class TorProcess:
-    def __init__(self, config: Config, home: Path | None = None):
+    def __init__(
+        self,
+        config: Config,
+        home: Path | None = None,
+        *,
+        service: bool = True,
+        temporary_service: bool = False,
+    ):
         self.config = config
         self.home = home or app_home()
+        self.service = service
+        self.temporary_service = temporary_service and service
         self.tor_dir = self.home / "tor"
-        self.data_dir = self.tor_dir / "data"
-        self.hidden_dir = self.tor_dir / "onion_service"
-        self.torrc = self.tor_dir / "torrc"
-        self.log_path = self.tor_dir / "tor.log"
+        self.data_dir = self.tor_dir / ("data-service" if service else "data-client")
+        suffix = f"onion_service_tmp_{os.getpid()}_{int(time.time() * 1000)}" if self.temporary_service else "onion_service"
+        self.hidden_dir = self.tor_dir / suffix
+        self.torrc = self.tor_dir / ("torrc-service" if service else "torrc-client")
+        self.log_path = self.tor_dir / ("tor-service.log" if service else "tor-client.log")
         self.process: subprocess.Popen[bytes] | None = None
         self._log_handle = None
         self._stop_requested = False
 
     def _write_torrc(self) -> None:
-        for directory in (self.home, self.tor_dir, self.data_dir, self.hidden_dir):
+        for directory in (self.home, self.tor_dir, self.data_dir):
             ensure_private_dir(directory)
-        content = (
-            f"DataDirectory {self.data_dir}\n"
-            f"SocksPort 127.0.0.1:{self.config.socks_port}\n"
-            f"HiddenServiceDir {self.hidden_dir}\n"
-            "HiddenServiceVersion 3\n"
-            f"HiddenServicePort {self.config.listen_port} 127.0.0.1:{self.config.listen_port}\n"
-            f"Log notice file {self.log_path}\n"
-            "SafeLogging 1\n"
-        )
+        if self.service:
+            ensure_private_dir(self.hidden_dir)
+            prepare_service_authorizations(self.hidden_dir, self.home)
+        lines = [
+            f"DataDirectory {self.data_dir}",
+            f"SocksPort 127.0.0.1:{self.config.socks_port}",
+            "SafeSocks 1",
+            "TestSocks 1",
+            f"Log notice file {self.log_path}",
+            "SafeLogging 1",
+        ]
+        if not self.service and client_authorization_available(self.home):
+            lines.append(f"ClientOnionAuthDir {client_auth_dir(self.home)}")
+        if self.service:
+            lines.extend(
+                [
+                    f"HiddenServiceDir {self.hidden_dir}",
+                    "HiddenServiceVersion 3",
+                    f"HiddenServicePort {self.config.listen_port} 127.0.0.1:{self.config.listen_port}",
+                ]
+            )
+        content = "\n".join(lines) + "\n"
         fd = os.open(self.torrc, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(content)
-        os.chmod(self.torrc, 0o600)
+        with suppress(OSError):
+            os.chmod(self.torrc, 0o600)
 
-    def start(self, timeout: float = 180.0) -> str:
+    def start(self, timeout: float = 180.0) -> str | None:
         self._stop_requested = False
         binary = shutil.which(self.config.tor_binary)
         if not binary:
             raise TorError("Tor wurde nicht gefunden; `onioncall doctor` ausführen")
         self._ensure_socks_port_available()
         self._write_torrc()
-        # Die Bereitschaft darf nur aus dem aktuellen Start stammen, nicht aus
-        # einer alten "Bootstrapped 100%"-Zeile einer früheren Sitzung.
         log_fd = os.open(self.log_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         self._log_handle = os.fdopen(log_fd, "ab", buffering=0)
-        os.chmod(self.log_path, 0o600)
-        process = subprocess.Popen(
+        with suppress(OSError):
+            os.chmod(self.log_path, 0o600)
+        self.process = subprocess.Popen(
             [binary, "-f", str(self.torrc)],
             stdin=subprocess.DEVNULL,
             stdout=self._log_handle,
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
-        self.process = process
         hostname = self.hidden_dir / "hostname"
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if self._stop_requested:
                 raise TorError("Tor-Start wurde abgebrochen")
-            if process.poll() is not None:
+            if self.process.poll() is not None:
                 raise TorError(self._unexpected_exit_message())
-            if hostname.exists() and self._socks_ready() and self._bootstrap_complete():
-                address = hostname.read_text(encoding="ascii").strip()
-                return validate_onion(address)
+            service_ready = not self.service or hostname.exists()
+            if service_ready and self._socks_ready() and self._bootstrap_complete():
+                if not self.service:
+                    return None
+                return validate_onion(hostname.read_text(encoding="ascii").strip())
             time.sleep(0.25)
         self.stop()
         raise TorError(f"Tor war nach {int(timeout)} Sekunden nicht bereit; Logdatei: {self.log_path}")
@@ -104,7 +144,7 @@ class TorProcess:
 
     def _socks_ready(self) -> bool:
         try:
-            with socket.create_connection(("127.0.0.1", self.config.socks_port), timeout=0.2):
+            with loopback_connect("127.0.0.1", self.config.socks_port, timeout=0.2):
                 return True
         except OSError:
             return False
@@ -117,7 +157,7 @@ class TorProcess:
         except OSError as exc:
             raise TorError(
                 f"Tor-SOCKS-Port {self.config.socks_port} ist bereits belegt. "
-                "Beende eine andere OnionCall-/Tor-Instanz oder ändere den SOCKS-Port unter Einstellungen."
+                "Beende eine andere OnionCall-/Tor-Instanz oder ändere den SOCKS-Port."
             ) from exc
         finally:
             probe.close()
@@ -150,8 +190,10 @@ class TorProcess:
         if self._log_handle is not None:
             self._log_handle.close()
             self._log_handle = None
+        if self.temporary_service:
+            shutil.rmtree(self.hidden_dir, ignore_errors=True)
 
-    def __enter__(self) -> TorProcess:
+    def __enter__(self) -> "TorProcess":
         self.start()
         return self
 
@@ -162,7 +204,7 @@ class TorProcess:
 def socks5_connect(host: str, port: int, socks_port: int, timeout: float = 60.0) -> socket.socket:
     host = validate_onion(host)
     encoded_host = host.encode("ascii")
-    sock = socket.create_connection(("127.0.0.1", socks_port), timeout=timeout)
+    sock = loopback_connect("127.0.0.1", socks_port, timeout=timeout)
     try:
         sock.sendall(b"\x05\x01\x00")
         if _recv_exact(sock, 2) != b"\x05\x00":

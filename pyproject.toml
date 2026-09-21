@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "onioncall"
-version = "2.5.0"
+version = "2.7.5"
 description = "BRZ - OnionCall: authenticated push-to-talk voice and text over Tor onion services"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,11 +33,6 @@ dependencies = ["cryptography>=42,<51", "prompt-toolkit>=3.0.52,<4"]
 [project.optional-dependencies]
 dev = ["build>=1.2,<2", "ruff>=0.12,<1"]
 
-[project.scripts]
-onioncall = "onioncall.cli:main"
-onioncall-gui = "onioncall.webgui:run_gui"
-onioncall-terminal = "onioncall.cli:run_terminal"
-
 [project.urls]
 Homepage = "https://github.com/BlackRabbitZ/OnionCall"
 Repository = "https://github.com/BlackRabbitZ/OnionCall"
@@ -45,9 +40,6 @@ Issues = "https://github.com/BlackRabbitZ/OnionCall/issues"
 
 [tool.setuptools.packages.find]
 include = ["onioncall*"]
-
-[tool.setuptools.package-data]
-onioncall = ["assets/*.png"]
 
 [tool.ruff]
 target-version = "py310"
@@ -57,6 +49,4 @@ line-length = 120
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
-# Die Oberflächen sind bewusst als eigenständige, paketierbare HTML-Zeichenketten eingebettet.
-"OnionCall-Setup.py" = ["E501"]
 "onioncall/webgui.py" = ["E501"]

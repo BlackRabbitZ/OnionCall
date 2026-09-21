@@ -17,7 +17,6 @@ WHITE = "37"
 
 
 def colors_enabled(stream: TextIO | None = None) -> bool:
-    """Use colors only for an interactive terminal and honor NO_COLOR."""
     stream = stream or sys.stdout
     return "NO_COLOR" not in os.environ and os.environ.get("TERM") != "dumb" and stream.isatty()
 
@@ -37,6 +36,4 @@ def brand(version: str | None = None, *, stream: TextIO | None = None) -> str:
 
 
 def status(value: bool, *, stream: TextIO | None = None) -> str:
-    if value:
-        return paint("[OK]", BOLD, GREEN, stream=stream)
-    return paint("[FEHLT]", BOLD, RED, stream=stream)
+    return paint("[OK]" if value else "[FEHLT]", BOLD, GREEN if value else RED, stream=stream)
