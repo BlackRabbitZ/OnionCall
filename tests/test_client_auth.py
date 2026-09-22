@@ -1,7 +1,15 @@
 from __future__ import annotations
-import tempfile, unittest
+
+import tempfile
+import unittest
 from pathlib import Path
-from onioncall.client_auth import generate_authorized_client, list_server_authorizations, parse_private_token
+
+from onioncall.client_auth import (
+    generate_authorized_client,
+    list_server_authorizations,
+    parse_private_token,
+)
+
 class AuthTests(unittest.TestCase):
     def test_generate(self):
         with tempfile.TemporaryDirectory() as tmp:

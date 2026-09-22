@@ -7,8 +7,12 @@ import unittest
 from pathlib import Path
 
 from onioncall.identity import load_or_create_identity
-from onioncall.protocol import MessageType, ProtocolError, perform_client_handshake, perform_server_handshake
-
+from onioncall.protocol import (
+    MessageType,
+    perform_client_handshake,
+    perform_server_handshake,
+    ProtocolError,
+)
 
 class ProtocolTests(unittest.TestCase):
     def test_authenticated_roundtrip_and_identity(self) -> None:

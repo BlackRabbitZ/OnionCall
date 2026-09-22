@@ -10,10 +10,13 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
-from .client_auth import client_auth_dir, client_authorization_available, prepare_service_authorizations
-from .config import Config, app_home, ensure_private_dir
+from .client_auth import (
+    client_auth_dir,
+    client_authorization_available,
+    prepare_service_authorizations,
+)
+from .config import app_home, Config, ensure_private_dir
 from .validation import validate_exact_loopback, validate_onion_v3
-
 
 class TorError(RuntimeError):
     pass

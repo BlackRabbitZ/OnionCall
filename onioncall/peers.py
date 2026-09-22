@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import (
-    ConfigError,
     app_home,
     atomic_private_write,
     atomic_secret_write,
+    ConfigError,
     ensure_private_dir,
     load_secret,
     parse_secret,

@@ -7,8 +7,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from onioncall.config import ConfigError, generate_secret, import_secret, load_secret, parse_secret, secret_token
-
+from onioncall.config import (
+    ConfigError,
+    generate_secret,
+    import_secret,
+    load_secret,
+    parse_secret,
+    secret_token,
+)
 
 class ConfigSecurityTests(unittest.TestCase):
     def test_generated_secret_roundtrip(self) -> None:

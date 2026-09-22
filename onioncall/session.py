@@ -10,7 +10,7 @@ from prompt_toolkit.patch_stdout import patch_stdout
 
 from .audio import AudioBackend, AudioError
 from .protocol import MessageType, ProtocolError, SecureChannel
-from .terminal_style import BOLD, CYAN, GREEN, MAGENTA, RED, WHITE, YELLOW, colors_enabled, paint
+from .terminal_style import BOLD, colors_enabled, CYAN, GREEN, MAGENTA, paint, RED, WHITE, YELLOW
 
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 

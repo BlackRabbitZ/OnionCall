@@ -7,7 +7,7 @@ from contextlib import suppress
 
 from .crypto import AuthenticationError
 from .identity import LocalIdentity
-from .protocol import SecureChannel, perform_server_handshake
+from .protocol import perform_server_handshake, SecureChannel
 
 DEFAULT_HANDSHAKE_TIMEOUT = 5.0
 DEFAULT_MAX_PENDING = 6

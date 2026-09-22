@@ -10,7 +10,6 @@ import time
 import wave
 from pathlib import Path
 
-
 class AudioError(RuntimeError):
     pass
 

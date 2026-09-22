@@ -8,8 +8,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-from .config import ConfigError, app_home, atomic_secret_write, read_secret_file
-
+from .config import app_home, atomic_secret_write, ConfigError, read_secret_file
 
 @dataclass(frozen=True, slots=True)
 class LocalIdentity:

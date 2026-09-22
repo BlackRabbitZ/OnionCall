@@ -5,8 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from onioncall.audio import AudioBackend, AudioError, _ogg_crc
-
+from onioncall.audio import _ogg_crc, AudioBackend, AudioError
 
 def ogg_page(packets: list[bytes]) -> bytes:
     lacing = bytearray()

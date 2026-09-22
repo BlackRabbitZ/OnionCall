@@ -8,8 +8,7 @@ import unittest
 import urllib.error
 import urllib.request
 
-from onioncall.webgui import HTML, ICON_PNG, GuiController, create_server
-
+from onioncall.webgui import create_server, GuiController, HTML, ICON_PNG
 
 class WebGuiTests(unittest.TestCase):
     def setUp(self) -> None:

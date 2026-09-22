@@ -17,13 +17,27 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .audio import AudioBackend, AudioError, is_termux, missing_audio_commands
-from .config import ConfigError, app_home, ensure_private_dir, generate_secret, load_config, save_config
+from .config import (
+    app_home,
+    ConfigError,
+    ensure_private_dir,
+    generate_secret,
+    load_config,
+    save_config,
+)
 from .gui_session import GuiSession
 from .identity import load_or_create_identity
 from .listener import accept_authenticated
-from .peers import import_peer_secret, list_peers, load_peer, peer_secret_token, pin_peer_fingerprint, set_peer_onion
+from .peers import (
+    import_peer_secret,
+    list_peers,
+    load_peer,
+    peer_secret_token,
+    pin_peer_fingerprint,
+    set_peer_onion,
+)
 from .protocol import perform_client_handshake
-from .tor import TorError, TorProcess, socks5_connect, validate_onion
+from .tor import socks5_connect, TorError, TorProcess, validate_onion
 
 MAX_REQUEST = 64 * 1024
 ICON_PNG = files("onioncall").joinpath("assets/onioncall-icon.png").read_bytes()

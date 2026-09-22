@@ -25,7 +25,6 @@ import venv
 import zipfile
 from pathlib import Path
 
-
 def _configure_utf8_stdio() -> None:
     """Force UTF-8 even when Windows inherits a legacy charmap/code page."""
     for stream in (sys.stdout, sys.stderr):

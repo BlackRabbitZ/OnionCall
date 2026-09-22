@@ -8,7 +8,13 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
-from .config import ConfigError, app_home, atomic_private_write, check_private_file, ensure_private_dir
+from .config import (
+    app_home,
+    atomic_private_write,
+    check_private_file,
+    ConfigError,
+    ensure_private_dir,
+)
 from .validation import validate_onion_v3
 
 AUTH_TOKEN_PREFIX = "onioncall:tor-auth:v1:"

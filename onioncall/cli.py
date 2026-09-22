@@ -9,7 +9,6 @@ import socket
 import sys
 from contextlib import suppress
 
-
 def _configure_utf8_stdio() -> None:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)

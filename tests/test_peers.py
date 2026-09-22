@@ -1,8 +1,18 @@
 from __future__ import annotations
-import tempfile, unittest
+
+import tempfile
+import unittest
 from pathlib import Path
+
 from onioncall.config import generate_secret
-from onioncall.peers import create_peer, list_peers, load_peer, peer_secret_token, import_peer_secret, pin_peer_fingerprint
+from onioncall.peers import (
+    create_peer,
+    import_peer_secret,
+    list_peers,
+    load_peer,
+    peer_secret_token,
+    pin_peer_fingerprint,
+)
 
 class PeerTests(unittest.TestCase):
     def test_profiles(self):

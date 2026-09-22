@@ -8,7 +8,6 @@ from pathlib import Path
 
 from scripts import setup_backend
 
-
 class SetupBackendTests(unittest.TestCase):
     def test_bootstrap_percent_uses_latest_value(self) -> None:
         text = (
