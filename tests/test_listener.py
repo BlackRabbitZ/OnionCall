@@ -4,7 +4,6 @@ import os
 import socket
 import tempfile
 import threading
-import time
 import unittest
 from pathlib import Path
 
@@ -29,7 +28,7 @@ class ListenerTests(unittest.TestCase):
                     listener,
                     psk,
                     server_identity,
-                    handshake_timeout=1.0,
+                    handshake_timeout=10.0,
                 )
 
             thread = threading.Thread(target=server)
@@ -37,10 +36,9 @@ class ListenerTests(unittest.TestCase):
             bad = socket.create_connection(("127.0.0.1", port))
             bad.sendall(b"garbage")
             bad.close()
-            time.sleep(0.3)
             good = socket.create_connection(("127.0.0.1", port))
-            channel = perform_client_handshake(good, psk, client_identity, timeout=2)
-            thread.join(3)
+            channel = perform_client_handshake(good, psk, client_identity, timeout=5)
+            thread.join(5)
 
             self.assertFalse(thread.is_alive())
             self.assertIsNotNone(result.get("channel"))

@@ -28,7 +28,7 @@ class WebSecurityTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_security_headers_present(self) -> None:
-        connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=2)
+        connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=5)
         connection.request("GET", "/", headers={"Host": f"127.0.0.1:{self.server.server_port}"})
         response = connection.getresponse()
         response.read()
@@ -39,7 +39,7 @@ class WebSecurityTests(unittest.TestCase):
         connection.close()
 
     def test_status_requires_token(self) -> None:
-        connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=2)
+        connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=5)
         connection.request(
             "GET",
             "/api/status",

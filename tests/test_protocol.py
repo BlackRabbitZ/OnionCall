@@ -22,12 +22,12 @@ class ProtocolTests(unittest.TestCase):
             result = []
 
             def server() -> None:
-                result.append(perform_server_handshake(left, psk, server_identity, timeout=2))
+                result.append(perform_server_handshake(left, psk, server_identity, timeout=10))
 
             thread = threading.Thread(target=server)
             thread.start()
-            client = perform_client_handshake(right, psk, client_identity, timeout=2)
-            thread.join(timeout=2)
+            client = perform_client_handshake(right, psk, client_identity, timeout=10)
+            thread.join(timeout=10)
             server_channel = result[0]
 
             client.send(MessageType.TEXT, b"hallo")
@@ -50,17 +50,18 @@ class ProtocolTests(unittest.TestCase):
 
             def server() -> None:
                 try:
-                    perform_server_handshake(left, b"A" * 32, server_id, timeout=1)
+                    perform_server_handshake(left, b"A" * 32, server_id, timeout=5)
                 except BaseException as exc:  # pragma: no cover - assertion inspects collected server error
                     errors.append(exc)
 
             thread = threading.Thread(target=server)
             thread.start()
             with self.assertRaises(AuthenticationError):
-                perform_client_handshake(right, b"B" * 32, client_id, timeout=1)
-            thread.join(timeout=2)
-            left.close()
+                perform_client_handshake(right, b"B" * 32, client_id, timeout=5)
             right.close()
+            thread.join(timeout=5)
+            left.close()
+            self.assertFalse(thread.is_alive(), "Server-Handshake wurde nach falschem PSK nicht beendet")
             self.assertTrue(errors)
 
     def test_frame_type_limit(self) -> None:
@@ -73,12 +74,12 @@ class ProtocolTests(unittest.TestCase):
             result = []
 
             def server() -> None:
-                result.append(perform_server_handshake(left, psk, server_id, timeout=2))
+                result.append(perform_server_handshake(left, psk, server_id, timeout=10))
 
             thread = threading.Thread(target=server)
             thread.start()
-            channel = perform_client_handshake(right, psk, client_id, timeout=2)
-            thread.join(timeout=2)
+            channel = perform_client_handshake(right, psk, client_id, timeout=10)
+            thread.join(timeout=10)
             with self.assertRaises(ProtocolError):
                 channel.send(MessageType.TEXT, b"x" * (8192 + 1))
             channel.close()

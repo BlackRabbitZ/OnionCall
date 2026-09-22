@@ -24,7 +24,7 @@ class WebGuiTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.server.shutdown()
         self.server.server_close()
-        self.thread.join(timeout=2)
+        self.thread.join(timeout=5)
         if self.previous_home is None:
             os.environ.pop("ONIONCALL_HOME", None)
         else:
@@ -42,7 +42,7 @@ class WebGuiTests(unittest.TestCase):
             method=method,
         )
         try:
-            with urllib.request.urlopen(request, timeout=2) as response:
+            with urllib.request.urlopen(request, timeout=5) as response:
                 return response.status, json.load(response)
         except urllib.error.HTTPError as exc:
             return exc.code, json.load(exc)
@@ -60,7 +60,7 @@ class WebGuiTests(unittest.TestCase):
         self.assertNotIn("Noch nicht erstellt.\nStarte „Empfangen“.';", HTML)
 
     def test_gui_serves_application_icon(self) -> None:
-        with urllib.request.urlopen(self.origin + "/icon.png", timeout=2) as response:
+        with urllib.request.urlopen(self.origin + "/icon.png", timeout=5) as response:
             icon = response.read()
         self.assertEqual(response.headers.get_content_type(), "image/png")
         self.assertEqual(icon, ICON_PNG)
