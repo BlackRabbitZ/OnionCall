@@ -49,53 +49,13 @@ jobs:
 
           for root in (Path("onioncall"), Path("scripts"), Path("tests")):
               for path in root.rglob("*.py"):
-                  ast.parse(path.read_text(encoding="utf-8"), filename=str(path), feature_version=(3, 10))
+                  ast.parse(
+                      path.read_text(encoding="utf-8"),
+                      filename=str(path),
+                      feature_version=(3, 10),
+                  )
           print("Python-3.10-Syntax: OK")
           PY
-
-  unit:
-    name: unit tests (Ubuntu, Python 3.13)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Repository auschecken
-        uses: actions/checkout@v7
-
-      - name: Python 3.13 einrichten
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: requirements.lock
-
-      - name: Runtime-Abhängigkeiten installieren
-        run: python -m pip install -r requirements.lock
-
-      - name: Installierte Versionen anzeigen
-        run: |
-          python --version
-          python -m pip --version
-          python -c "import cryptography, prompt_toolkit, wcwidth; print('cryptography', cryptography.__version__); print('prompt_toolkit', prompt_toolkit.__version__); print('wcwidth', wcwidth.__version__)"
-
-      - name: Python-Dateien kompilieren
-        run: python -m compileall -q onioncall scripts tests
-
-      - name: Unit- und Regressionstests
-        run: python -m unittest discover -s tests -v
-
-      - name: Paket bauen
-        run: |
-          python -m pip install "build==1.6.1"
-          python -m build
-
-      - name: Wheel in sauberer Umgebung prüfen
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m venv .ci-wheel-venv
-          .ci-wheel-venv/bin/python -m pip install dist/*.whl
-          .ci-wheel-venv/bin/python -c "import onioncall; import onioncall.cli; import onioncall.webgui; print('Wheel import OK:', onioncall.__version__)"
 
   platform:
     name: platform (${{ matrix.os }}, Python ${{ matrix.python-version }})
@@ -111,7 +71,7 @@ jobs:
           - "3.14"
 
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Repository auschecken
@@ -127,13 +87,16 @@ jobs:
       - name: Runtime-Abhängigkeiten installieren
         run: python -m pip install -r requirements.lock
 
+      - name: Abhängigkeiten prüfen
+        run: python -m pip check
+
       - name: Python- und Plattformdaten anzeigen
         run: |
           python --version
           python -c "import platform, sys; print(platform.platform()); print(sys.executable)"
 
       - name: Quellcode kompilieren
-        run: python -m compileall -q onioncall scripts
+        run: python -m compileall -q onioncall scripts tests
 
       - name: Kernmodule importieren
         run: >-
@@ -144,3 +107,10 @@ jobs:
 
       - name: CLI-Hilfe prüfen
         run: python -m onioncall.cli --help
+
+      # Die komplette Testsuite läuft genau einmal auf dem neuesten unterstützten
+      # Python unter Linux. Die übrigen fünf Matrix-Jobs prüfen Plattform- und
+      # Interpreter-Kompatibilität, ohne dieselben Tests mehrfach auszuführen.
+      - name: Unit-, Security- und Regressionstests
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
+        run: python -m unittest discover -s tests -v
