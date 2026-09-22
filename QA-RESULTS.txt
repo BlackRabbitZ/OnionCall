@@ -1,0 +1,36 @@
+BRZ – OnionCall 2.7.6 Security-Fixed + Browser-Installer + TorFix + FFmpeg
+QA-Datum: 2026-09-22
+
+Erfolgreich in dieser Linux-Prüfumgebung getestet:
+- Python compileall: PASS (onioncall/, scripts/, tests/)
+- Unit-/Regressionstests: 35/35 PASS
+- Browser-Installer bindet nur an 127.0.0.1: PASS
+- Browser-Installer API-Token / Same-Origin / CSP / no-store: PASS
+- Slow-Handshake-DoS-Regressionstest: PASS
+- Onion-v3-Prüfsumme und exakte Loopback-Prüfung: PASS
+- PSK-Import-/Weak-Key-Regeln: PASS
+- Web-GUI Token-/JavaScript-Regressionstests: PASS
+- Ogg/Opus Struktur- und CRC-Prüfung: PASS
+- Tor-Paketdownload: dynamische Loopback-Ports und Bootstrap-Auswertung getestet
+- FFmpeg-Download auf Version 9.0.2 + SHA-256 fest gepinnt: PASS
+- FFmpeg ZIP Path-Traversal-Abwehr: PASS
+- sichere normale FFmpeg-ZIP-Extraktion: PASS
+- Audio-Auflösung bevorzugt projektlokales tools/ffmpeg: PASS
+- Python-Wheel ohne Netzwerkzugriff gebaut: PASS
+
+Bewusst unverändert:
+- Browser-Installer-Layout bleibt im gewünschten dunklen Kartenlayout.
+- Haupt-GUI bleibt im alten gewünschten OnionCall-Layout.
+
+Nicht nativ in dieser Linux-Prüfumgebung ausführbar:
+- Windows DPAPI mit echtem Windows-Benutzerprofil
+- echter Download/Start von ffmpeg.exe und ffplay.exe unter Windows
+- DirectShow-Mikrofonaufnahme mit realer Windows-Audiohardware
+- Windows-PowerShell-Killswitch/Updater
+- pyw/OnionCall-Setup.cmd in einer echten Windows-Desktop-Sitzung
+- realer Tor-Netzwerkbootstrap unter der Windows-Zielumgebung
+
+Hinweis:
+FFmpeg-Binaries sind nicht im Projekt-ZIP enthalten. Der Windows-Installer lädt die
+geprüfte Essentials-Version bei Bedarf projektlokal nach. Ohne aktivierten direkten
+Paketdownload erfolgt dieser Download über den temporären Tor-HTTP-Tunnel.

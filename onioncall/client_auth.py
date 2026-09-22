@@ -8,11 +8,11 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
-from .config import ConfigError, app_home, atomic_private_write, ensure_private_dir
+from .config import ConfigError, app_home, atomic_private_write, check_private_file, ensure_private_dir
+from .validation import validate_onion_v3
 
 AUTH_TOKEN_PREFIX = "onioncall:tor-auth:v1:"
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
-ONION_RE = re.compile(r"^[a-z2-7]{56}\.onion$")
 B32_RE = re.compile(r"^[A-Z2-7]{52}$")
 
 
@@ -80,7 +80,7 @@ def generate_authorized_client(name: str, home: Path | None = None, *, replace: 
 def parse_private_token(token: str) -> str:
     token = token.strip()
     if token.startswith(AUTH_TOKEN_PREFIX):
-        token = token[len(AUTH_TOKEN_PREFIX):]
+        token = token[len(AUTH_TOKEN_PREFIX) :]
     _decode_b32(token)
     return token.upper()
 
@@ -93,14 +93,17 @@ def import_client_authorization(
     home: Path | None = None,
     replace: bool = True,
 ) -> Path:
-    onion = onion.strip().lower()
-    if not ONION_RE.fullmatch(onion):
-        raise ConfigError("Ungültige Onion-v3-Adresse für Tor Client Authorization")
+    try:
+        onion = validate_onion_v3(onion)
+    except ValueError as exc:
+        raise ConfigError("Ungültige Onion-v3-Adresse für Tor Client Authorization") from exc
     name = _safe_name(name)
     private_b32 = parse_private_token(token)
     path = client_auth_dir(home) / f"{name}.auth_private"
     if path.exists() and not replace:
         raise ConfigError(f"Private Tor-Autorisierung existiert bereits: {name}")
+    # Tor muss diese Datei selbst lesen können. Deshalb bleibt sie im Tor-Format auf Platte,
+    # wird aber strikt auf private Dateirechte/Symlink-Manipulation geprüft.
     content = f"{onion[:-6]}:descriptor:x25519:{private_b32}\n".encode("ascii")
     atomic_private_write(path, content)
     return path
@@ -111,7 +114,11 @@ def list_server_authorizations(home: Path | None = None) -> list[str]:
 
 
 def list_client_authorizations(home: Path | None = None) -> list[str]:
-    return sorted(path.name.removesuffix(".auth_private") for path in client_auth_dir(home).glob("*.auth_private"))
+    result: list[str] = []
+    for path in client_auth_dir(home).glob("*.auth_private"):
+        check_private_file(path)
+        result.append(path.name.removesuffix(".auth_private"))
+    return sorted(result)
 
 
 def revoke_server_authorization(name: str, home: Path | None = None) -> bool:
@@ -151,4 +158,4 @@ def prepare_service_authorizations(hidden_dir: Path, home: Path | None = None) -
 
 
 def client_authorization_available(home: Path | None = None) -> bool:
-    return any(client_auth_dir(home).glob("*.auth_private"))
+    return bool(list_client_authorizations(home))

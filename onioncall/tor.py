@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ipaddress
 import os
 import re
 import shutil
@@ -13,8 +12,7 @@ from pathlib import Path
 
 from .client_auth import client_auth_dir, client_authorization_available, prepare_service_authorizations
 from .config import Config, app_home, ensure_private_dir
-
-ONION_RE = re.compile(r"^[a-z2-7]{56}\.onion$")
+from .validation import validate_exact_loopback, validate_onion_v3
 
 
 class TorError(RuntimeError):
@@ -28,20 +26,19 @@ def validate_onion(address: str) -> str:
             "Das ist ein Verbindungsschlüssel, keine Onion-Adresse. "
             "Zum Anrufen die beim Empfänger angezeigte Adresse mit `.onion` verwenden."
         )
-    address = address.removeprefix("http://").removeprefix("https://").rstrip("/")
-    if not ONION_RE.fullmatch(address):
-        raise TorError("Erwartet wird eine gültige Onion-v3-Adresse mit 56 Zeichen")
-    return address
+    try:
+        return validate_onion_v3(address, allow_url=True)
+    except ValueError as exc:
+        raise TorError(str(exc)) from exc
 
 
 def validate_loopback_host(host: str) -> str:
     try:
-        address = ipaddress.ip_address(host.strip())
+        return validate_exact_loopback(host)
     except ValueError as exc:
-        raise TorError("Direktmodus akzeptiert ausschließlich die literalen Loopback-Adressen 127.0.0.1 oder ::1") from exc
-    if not address.is_loopback:
-        raise TorError("Direktmodus ist absichtlich auf Loopback beschränkt; externe Ziele würden Tor umgehen")
-    return str(address)
+        raise TorError(
+            "Direktmodus akzeptiert ausschließlich die literalen Loopback-Adressen 127.0.0.1 oder ::1"
+        ) from exc
 
 
 def loopback_connect(host: str, port: int, timeout: float = 20.0) -> socket.socket:

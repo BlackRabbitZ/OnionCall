@@ -1,11 +1,3 @@
-include CHANGELOG.md
-include CONTRIBUTING.md
-include LICENSE
-include NOTICE
-include OnionCall-Setup.py
-include OnionCall-Terminal-Setup.py
-include README.md
-include SECURITY.md
-include RELEASING.md
-recursive-include docs *.md
-recursive-include scripts *.sh *.py
+include LICENSE NOTICE README.md SECURITY.md
+recursive-include onioncall/assets *.png
+recursive-include scripts *.py *.sh *.ps1

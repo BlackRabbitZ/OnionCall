@@ -1,76 +1,63 @@
-# Sicherheitsmodell – OnionCall 2.6
+# Sicherheitsmodell – OnionCall 2.7.6
 
 ## Ziele
 
-OnionCall versucht, die öffentliche IP der Kommunikationspartner gegenüber der jeweils anderen Seite nicht offenzulegen und die transportierten Inhalte zusätzlich Ende-zu-Ende zu authentifizieren und zu verschlüsseln.
+OnionCall versucht, die öffentliche IP der Kommunikationspartner gegenüber der jeweils anderen Seite nicht offenzulegen und transportierte Inhalte zusätzlich Ende-zu-Ende zu authentifizieren und zu verschlüsseln.
 
 ### Netzwerk-Invarianten
 
 1. Der normale Outbound-Pfad verbindet nur zu `127.0.0.1:<Tor-SOCKS>`.
 2. Onion-Ziele werden als SOCKS5-Domain an Tor übergeben; OnionCall führt dafür keine lokale DNS-Auflösung durch.
 3. Listener binden ausschließlich an Loopback.
-4. Der Diagnose-Direktmodus akzeptiert ausschließlich `127.0.0.1` und `::1`.
-5. Der Caller startet keinen Hidden Service.
-6. Der optionale Linux-Killswitch erzwingt für den OnionCall-Prozess `IPAddressDeny=any` + `IPAddressAllow=localhost`.
+4. Der Diagnose-Direktmodus akzeptiert exakt `127.0.0.1` und `::1`.
+5. Onion-v3-Adressen werden nicht nur syntaktisch, sondern auch anhand Version und SHA3-Prüfsumme validiert.
+6. Der Caller startet keinen Hidden Service.
+7. Optionale OS-Killswitches begrenzen direkte Netzwerkzugriffe des OnionCall-Prozesses.
 
 ## Handshake v3
 
-Jede Sitzung kombiniert:
-
-- 256-Bit PSK pro Kontaktprofil,
-- frisches X25519-Schlüsselpaar pro Verbindung,
-- langfristige Ed25519-Installationsidentität,
-- zufällige 256-Bit Nonces,
-- HMAC-SHA-256 über das vollständige Transcript,
-- Ed25519-Signaturen über das Transcript,
-- HKDF-SHA-256,
-- getrennte Richtungs-Schlüssel,
-- ChaCha20-Poly1305 pro Frame,
-- strikt monotone Sequenznummern.
+Jede Sitzung kombiniert einen zufälligen 256-Bit-PSK pro Kontaktprofil, ein frisches X25519-Schlüsselpaar, eine langfristige Ed25519-Installationsidentität, zufällige Nonces, HMAC-SHA-256 und Ed25519-Signaturen über das Transcript, HKDF-SHA-256 sowie ChaCha20-Poly1305 mit getrennten Richtungs-Schlüsseln und monotonen Sequenznummern.
 
 Der Ed25519-Fingerprint wird nach einer erfolgreich PSK-authentifizierten ersten Verbindung gepinnt. Ändert er sich später, wird die Verbindung vor Sitzungsbeginn abgebrochen.
 
 ## DoS-Härtung
 
-Ein eingehender TCP-Client verbraucht den Listener nicht mehr dauerhaft. Fehlgeschlagene Handshakes werden geschlossen und der Listener akzeptiert weiter. Eine kleine capped Verzögerung erschwert blindes Flooding. Das ist kein vollständiger DoS-Schutz gegen einen globalen oder sehr ressourcenstarken Angreifer.
+Pre-Auth-Verbindungen werden in einem kleinen, begrenzten Worker-Pool verarbeitet. Ein einzelner Client, der den Handshake offen hält, blockiert deshalb nicht mehr den gesamten Listener. Der Standard-Handshake-Timeout beträgt fünf Sekunden; überzählige unauthentifizierte Sockets werden sofort geschlossen. Das begrenzt Ressourcenverbrauch, ist aber kein vollständiger Schutz gegen einen globalen oder sehr ressourcenstarken DoS-Angreifer.
 
 ## Audio
 
-Empfangene Audiodaten werden vor dem Decoder auf Ogg/Opus-Merkmale und Größe geprüft. Die dekodierte WAV-Datei besitzt ein aus der maximalen Spieldauer abgeleitetes Größenlimit. Auf Linux wird `opusdec`, sofern `prlimit` vorhanden ist, mit RAM-, CPU- und File-Size-Limits gestartet.
+Eingehende Audiodaten werden vor einem nativen Decoder strikt als einzelner Ogg/Opus-Stream geprüft: Capture Pattern, Ogg-Version, Stream-Serial, Seitensequenz, Continuation/BOS/EOS, Seitengrößen, Ogg-CRC, `OpusHead`, `OpusTags`, Packet-Limits und Gesamtgröße. Dekodierte PCM-Daten haben feste Kanal-/Samplerate-/Größen-/Dauerlimits. Linux nutzt zusätzlich `prlimit`, sofern vorhanden.
+
+Windows verwendet einen eigenen FFmpeg/DirectShow-Pfad (`ffmpeg`/`ffplay`) statt Linux-ALSA-Programme. `ONIONCALL_AUDIO_DEVICE` kann einen Mikrofon-Gerätenamen explizit festlegen.
+
+Ein externer nativer Decoder bleibt trotz dieser Härtung eine zusätzliche Angriffsfläche. Die Prüfung reduziert unnötige Parser-Eingaben, ersetzt aber keine vollständige OS-Sandbox eines fehlerhaften Decoders.
+
+## Private Schlüssel
+
+- OnionCall-App-Schlüssel werden atomar geschrieben und auf POSIX nur mit privaten Dateirechten akzeptiert.
+- Unter Windows werden `conversation.key`, Kontakt-PSKs und `identity.key` mit der benutzergebundenen Windows-DPAPI verschlüsselt. Bestehende Klartextdateien werden beim ersten erfolgreichen Laden migriert.
+- Tor-Client-Authorization-Dateien bleiben im von Tor benötigten Klartextformat. OnionCall prüft sie auf sichere Dateirechte und verweigert Symlinks; eine DPAPI-Verschlüsselung wäre hier ohne separaten Entschlüsselungs-/Staging-Schritt nicht mit Tor kompatibel.
+- Importierte PSKs müssen als vollständiges `onioncall:v2:`-Token vorliegen. Offensichtlich konstruierte/repetitive Schlüssel werden abgewiesen. Ein beliebiger 32-Byte-Wert kann jedoch nicht zuverlässig auf echte Entropie geprüft werden; nur von OnionCall erzeugte Schlüssel verwenden.
 
 ## Lokale Web-GUI
 
-- Bind: 127.0.0.1
-- Host-Allowlist
-- API-Token für GET-Status und POST-Aktionen
-- Origin-Prüfung für POST
-- CSP mit Nonce
-- X-Frame-Options: DENY
-- Referrer-Policy: no-referrer
-- Permissions-Policy
-- COOP/CORP/COEP
-- Cache-Control: no-store
-- Request-Größenlimit
+Die GUI bindet an `127.0.0.1`, verwendet Host-Allowlist, zufälliges API-Token, Origin-Prüfung für POST, CSP-Nonce, Frame-/Referrer-/Permissions-/COOP-/CORP-/COEP-Header, `Cache-Control: no-store` und Request-Größenlimits. Status-API und mutierende Aktionen benötigen das Sitzungstoken.
 
-## Supply Chain
+## Supply Chain und Updates
 
-Das lokale Setup lädt nicht stillschweigend Abhängigkeiten. `private-update.sh` verwendet `torsocks` und bricht ohne Tor ab. Tag-Releases sollen ausschließlich über den Release-Workflow entstehen; der Workflow erzeugt SHA-256-Dateien und GitHub Artifact Attestations.
+Runtime-Abhängigkeiten sind für 2.7.6 auf konkrete Versionen gepinnt und zusätzlich in `requirements.lock` dokumentiert. Das Setup prüft installierte Distributionen anhand ihrer tatsächlichen Paketversionen statt nur auf erfolgreiche Imports.
+
+Private Update-Skripte fetchen weiterhin ausschließlich über Tor, installieren einen neuen Commit aber erst, wenn mindestens eine Vertrauensbedingung erfüllt ist: lokal verifizierbare Commit-Signatur, lokal verifizierbarer signierter Tag oder ein explizit außerbandig geprüfter `ONIONCALL_TRUSTED_COMMIT`. Ein bloßer HTTPS-/Tor-Transport wird nicht mehr als Herkunftsprüfung behandelt.
 
 ## Nicht-Ziele / verbleibende Risiken
 
 - Schutz gegen globale Timing-/Traffic-Korrelation ist nicht garantiert.
 - Endpoint-Kompromittierung, Keylogger, Malware oder physischer Zugriff werden nicht gelöst.
 - Metadaten wie Erreichbarkeitszeiten können trotz Onion Services Rückschlüsse ermöglichen.
-- Externe Audio-Decoder bleiben eine zusätzliche Angriffsfläche.
-- systemd-Killswitch ist Linux-spezifisch.
+- Externe Audio-Decoder bleiben trotz Container-/Ressourcenprüfung eine zusätzliche Angriffsfläche.
+- Tor-Client-Authorization-Private-Keys müssen für Tor in dessen erwartetem Dateiformat vorliegen.
+- Unter POSIX schützt OnionCall App-Schlüssel primär durch restriktive Dateirechte; echte Verschlüsselung-at-rest erfordert ein separates Unlock-/Keychain-Modell.
 
 ## Schwachstellen melden
 
-Bitte sensible Sicherheitsprobleme nicht zuerst öffentlich mit Exploit-Details posten. Nutze nach Möglichkeit GitHubs private Security-Advisory-Funktion des Repositorys.
-
-## OS-Killswitch und Tor Client Authorization (2.7.0)
-
-- Linux: `scripts/onioncall-killswitch-linux.sh` startet Tor außerhalb der eingeschränkten systemd-Unit und OnionCall innerhalb einer Unit, die nur Loopback-Netzwerkzugriffe erlaubt.
-- Windows: `scripts/onioncall-killswitch-windows.ps1` sperrt direkte ausgehende Verbindungen des projektspezifischen `.venv\Scripts\python.exe` und lässt Loopback für den lokalen Tor-SOCKS offen. Die Regel schützt den OnionCall-Python-Prozess; fremde, absichtlich gestartete Netzwerkprogramme unterliegen eigenen Firewallregeln.
-- Tor v3 Client Authorization ist optional und wird zusätzlich zum OnionCall-PSK/Identity-Handshake ausgewertet. Server-Keys liegen unter `~/.config/onioncall/tor_auth/server`, Client-Keys unter `~/.config/onioncall/tor_auth/client`.
-- Das Setup verwendet für fehlende Python-Pakete standardmäßig Tor und bricht ohne Tor ab. Direkter Download ist nur mit `--allow-clearnet` möglich.
+Sensible Sicherheitsprobleme bitte nicht zuerst öffentlich mit Exploit-Details posten. Nach Möglichkeit GitHubs private Security-Advisory-Funktion des Repositorys verwenden.

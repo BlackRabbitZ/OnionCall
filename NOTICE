@@ -1,3 +1,8 @@
 BRZ – OnionCall
-Copyright BlackRabbitZ
-Licensed under the Apache License, Version 2.0.
+Copyright (c) BlackRabbitZ
+Security-focused alpha software. No independent security audit has been completed.
+
+
+FFmpeg notice
+-------------
+On Windows, the OnionCall installer can download a separate FFmpeg Essentials build from gyan.dev, a Windows-binary provider linked by the FFmpeg project. The downloaded FFmpeg build is separate third-party software and is licensed under GPLv3 according to its distributor. OnionCall does not include the FFmpeg binaries in this source archive.

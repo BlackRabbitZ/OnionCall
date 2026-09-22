@@ -11,9 +11,11 @@ from .config import (
     ConfigError,
     app_home,
     atomic_private_write,
+    atomic_secret_write,
     ensure_private_dir,
     load_secret,
     parse_secret,
+    read_secret_file,
     secret_token,
 )
 
@@ -60,7 +62,13 @@ def list_peers(home: Path | None = None) -> list[str]:
     return sorted(names)
 
 
-def create_peer(name: str, *, onion: str | None = None, key: bytes | None = None, home: Path | None = None) -> PeerProfile:
+def create_peer(
+    name: str,
+    *,
+    onion: str | None = None,
+    key: bytes | None = None,
+    home: Path | None = None,
+) -> PeerProfile:
     name = _validate_name(name)
     if name == "default":
         raise ConfigError("`default` ist für den bisherigen Hauptschlüssel reserviert")
@@ -70,26 +78,23 @@ def create_peer(name: str, *, onion: str | None = None, key: bytes | None = None
     key = key or secrets.token_bytes(32)
     if len(key) != 32:
         raise ConfigError("Kontakt-Schlüssel muss 256 Bit lang sein")
-    atomic_private_write(key_path, base64.urlsafe_b64encode(key) + b"\n")
+    atomic_secret_write(key_path, base64.urlsafe_b64encode(key) + b"\n")
     profile = PeerProfile(name=name, key=key, onion=onion)
     _save_meta(profile, home)
     return profile
 
 
 def import_peer_secret(name: str, token: str, *, home: Path | None = None) -> PeerProfile:
-    key = parse_secret(token)
+    key = parse_secret(token, require_token=True)
     if name == "default":
         from .config import import_secret
 
         import_secret(token, home, replace=True)
         return load_peer(name, home)
     path = _key_path(name, home)
-    if not path.exists():
-        atomic_private_write(path, base64.urlsafe_b64encode(key) + b"\n")
-        profile = PeerProfile(name=_validate_name(name), key=key)
-        _save_meta(profile, home)
-        return profile
-    atomic_private_write(path, base64.urlsafe_b64encode(key) + b"\n")
+    atomic_secret_write(path, base64.urlsafe_b64encode(key) + b"\n")
+    if not _meta_path(name, home).exists():
+        _save_meta(PeerProfile(name=_validate_name(name), key=key), home)
     profile = load_peer(name, home)
     profile.key = key
     return profile
@@ -105,7 +110,7 @@ def load_peer(name: str = "default", home: Path | None = None) -> PeerProfile:
         if not path.exists():
             raise ConfigError(f"Unbekannter Kontakt: {name}")
         try:
-            key = base64.urlsafe_b64decode(path.read_text(encoding="ascii").strip().encode("ascii"))
+            key = base64.urlsafe_b64decode(read_secret_file(path).strip())
         except (OSError, ValueError) as exc:
             raise ConfigError(f"Ungültiger Kontakt-Schlüssel für {name}") from exc
         if len(key) != 32:

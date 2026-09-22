@@ -8,7 +8,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-from .config import app_home, atomic_private_write
+from .config import ConfigError, app_home, atomic_secret_write, read_secret_file
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,13 +43,17 @@ def _public_bytes(key: Ed25519PrivateKey) -> bytes:
 def load_or_create_identity(home: Path | None = None) -> LocalIdentity:
     path = identity_path(home)
     if path.exists():
-        raw = base64.urlsafe_b64decode(path.read_text(encoding="ascii").strip().encode("ascii"))
+        try:
+            encoded = read_secret_file(path).decode("ascii").strip().encode("ascii")
+            raw = base64.urlsafe_b64decode(encoded)
+        except (ConfigError, OSError, UnicodeError, ValueError) as exc:
+            raise RuntimeError("Ungültiger lokaler Identitätsschlüssel") from exc
         if len(raw) != 32:
             raise RuntimeError("Ungültiger lokaler Identitätsschlüssel")
         private = Ed25519PrivateKey.from_private_bytes(raw)
     else:
         private = Ed25519PrivateKey.generate()
-        atomic_private_write(path, base64.urlsafe_b64encode(_private_bytes(private)) + b"\n")
+        atomic_secret_write(path, base64.urlsafe_b64encode(_private_bytes(private)) + b"\n")
     return LocalIdentity(private=private, public_bytes=_public_bytes(private))
 
 

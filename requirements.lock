@@ -1,0 +1,5 @@
+# OnionCall 2.7.6 runtime lock - geprüft am 2026-09-22
+# Exakte Versionen verhindern, dass Neuinstallationen unbemerkt andere Runtime-Versionen erhalten.
+cryptography==50.0.1
+prompt-toolkit==3.0.53
+wcwidth==0.8.4

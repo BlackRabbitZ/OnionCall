@@ -1,3 +1,3 @@
 # Code of Conduct
 
-Behandle andere respektvoll. Belästigung, diskriminierende Angriffe und absichtliche Störungen werden nicht toleriert. Technische Kritik soll sich auf Code, Design und nachprüfbare Sicherheitsaspekte beziehen.
+Respektvoll, sachlich und konstruktiv zusammenarbeiten. Sicherheitsprobleme nicht öffentlich mit unnötigen Exploit-Details veröffentlichen; dafür die Hinweise in `SECURITY.md` beachten.

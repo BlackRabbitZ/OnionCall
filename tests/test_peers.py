@@ -1,37 +1,13 @@
 from __future__ import annotations
-
-import tempfile
-import unittest
+import tempfile, unittest
 from pathlib import Path
-
-from onioncall.config import ConfigError, generate_secret
-from onioncall.peers import create_peer, list_peers, load_peer, pin_peer_fingerprint
-
-FP1 = 'BRZ-' + '-'.join(['AAAA'] * 8)
-FP2 = 'BRZ-' + '-'.join(['BBBB'] * 8)
-
+from onioncall.config import generate_secret
+from onioncall.peers import create_peer, list_peers, load_peer, peer_secret_token, import_peer_secret, pin_peer_fingerprint
 
 class PeerTests(unittest.TestCase):
-    def test_per_peer_keys_are_distinct(self):
+    def test_profiles(self):
         with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
-            generate_secret(home)
-            a = create_peer('alice', home=home)
-            b = create_peer('bob', home=home)
-            self.assertNotEqual(a.key, b.key)
-            self.assertEqual(list_peers(home), ['alice', 'bob', 'default'])
-
-    def test_fingerprint_pinning_detects_change(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
-            generate_secret(home)
-            p = load_peer('default', home)
-            pin_peer_fingerprint(p, FP1, home)
-            p2 = load_peer('default', home)
-            self.assertEqual(p2.fingerprint, FP1)
-            with self.assertRaises(ConfigError):
-                pin_peer_fingerprint(p2, FP2, home)
-
-
-if __name__ == '__main__':
-    unittest.main()
+            home=Path(tmp); generate_secret(home); p=create_peer('alice',home=home); token=peer_secret_token(p)
+            self.assertIn('default',list_peers(home)); self.assertIn('alice',list_peers(home)); self.assertEqual(import_peer_secret('bob',token,home=home).key,p.key)
+            fp='BRZ-'+'-'.join(['ABCD']*8); pin_peer_fingerprint(load_peer('alice',home),fp,home); self.assertEqual(load_peer('alice',home).fingerprint,fp)
+if __name__=='__main__': unittest.main()

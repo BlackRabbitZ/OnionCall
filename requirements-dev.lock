@@ -1,0 +1,4 @@
+# OnionCall 2.7.6 build/dev pins - geprüft am 2026-09-22
+setuptools==84.0.0
+build==1.6.1
+ruff==0.16.8
