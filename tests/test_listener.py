@@ -20,6 +20,10 @@ class ListenerTests(unittest.TestCase):
             client_identity = load_or_create_identity(Path(client_tmp))
             listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             listener.bind(("127.0.0.1", 0))
+            # Listen synchronously before starting the worker thread.  This removes
+            # a scheduler race where CI could attempt the first connection before
+            # accept_authenticated() had called listen().
+            listener.listen(16)
             port = listener.getsockname()[1]
             result = {}
 

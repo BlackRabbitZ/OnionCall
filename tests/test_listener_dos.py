@@ -3,7 +3,6 @@ from __future__ import annotations
 import socket
 import tempfile
 import threading
-import time
 import unittest
 from pathlib import Path
 
@@ -21,6 +20,10 @@ class ListenerDosTests(unittest.TestCase):
             client_identity = load_or_create_identity(home / "client")
             listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             listener.bind(("127.0.0.1", 0))
+            # Put the socket into listening state synchronously.  The original
+            # test used sleep(0.1) to wait for the server thread, which is not a
+            # reliable synchronization primitive on loaded CI runners.
+            listener.listen(16)
             port = listener.getsockname()[1]
             result: list[object] = []
             errors: list[BaseException] = []
@@ -41,11 +44,8 @@ class ListenerDosTests(unittest.TestCase):
 
             thread = threading.Thread(target=serve, daemon=True)
             thread.start()
-            time.sleep(0.1)
             stalled = socket.create_connection(("127.0.0.1", port), timeout=5)
-            time.sleep(0.1)
-
-            client_sock = socket.create_connection(("127.0.0.1", port), timeout=2)
+            client_sock = socket.create_connection(("127.0.0.1", port), timeout=5)
             client_channel = perform_client_handshake(client_sock, psk, client_identity, timeout=5.0)
             thread.join(timeout=5)
 
