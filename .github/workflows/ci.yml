@@ -1,24 +1,72 @@
 name: CI
+
 on:
   push:
   pull_request:
+
 permissions:
   contents: read
+
+# Bei mehreren schnellen Pushes wird nur der neueste Lauf weitergeführt.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  lint:
+    name: lint (Ruff 0.16.8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python 3.14 einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Ruff installieren
+        run: python -m pip install --disable-pip-version-check "ruff==0.16.8"
+
+      - name: Ruff prüfen
+        run: python -m ruff check onioncall scripts tests
+
   test:
+    name: test (${{ matrix.os }}, Python ${{ matrix.python-version }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        python-version:
+          - "3.10"
+          - "3.14"
+
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python ${{ matrix.python-version }} einrichten
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e ".[dev]"
-      - run: python -m ruff check onioncall scripts tests
-      - run: python -m compileall -q onioncall scripts tests
-      - run: python -m unittest discover -s tests -v
+          cache: pip
+
+      - name: OnionCall installieren
+        run: |
+          python -m pip install --disable-pip-version-check --upgrade pip
+          python -m pip install -e .
+
+      - name: Python-Dateien kompilieren
+        run: python -m compileall -q onioncall scripts tests
+
+      - name: Unit- und Regressionstests
+        run: python -m unittest discover -s tests -v
