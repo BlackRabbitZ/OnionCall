@@ -1,7 +1,6 @@
 # BRZ – OnionCall 2.7.6
-
 <p align="center">
-  <img src="onioncall/assets/onioncall-icon.png" alt="BRZ – OnionCall" width="180">
+  <img src="onioncall/assets/onioncall-banner.png" alt="BlackRabbitZ OnionChat – Hase in einer violetten Onion-Sprechblase" width="180">
 </p>
 
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
