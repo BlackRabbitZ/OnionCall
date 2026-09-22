@@ -15,8 +15,9 @@ from .client_auth import (
     client_authorization_available,
     prepare_service_authorizations,
 )
-from .config import app_home, Config, ensure_private_dir
+from .config import Config, app_home, ensure_private_dir
 from .validation import validate_exact_loopback, validate_onion_v3
+
 
 class TorError(RuntimeError):
     pass
@@ -63,7 +64,11 @@ class TorProcess:
         self.temporary_service = temporary_service and service
         self.tor_dir = self.home / "tor"
         self.data_dir = self.tor_dir / ("data-service" if service else "data-client")
-        suffix = f"onion_service_tmp_{os.getpid()}_{int(time.time() * 1000)}" if self.temporary_service else "onion_service"
+        suffix = (
+            f"onion_service_tmp_{os.getpid()}_{int(time.time() * 1000)}"
+            if self.temporary_service
+            else "onion_service"
+        )
         self.hidden_dir = self.tor_dir / suffix
         self.torrc = self.tor_dir / ("torrc-service" if service else "torrc-client")
         self.log_path = self.tor_dir / ("tor-service.log" if service else "tor-client.log")
@@ -193,7 +198,7 @@ class TorProcess:
         if self.temporary_service:
             shutil.rmtree(self.hidden_dir, ignore_errors=True)
 
-    def __enter__(self) -> "TorProcess":
+    def __enter__(self) -> TorProcess:
         self.start()
         return self
 

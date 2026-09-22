@@ -10,7 +10,7 @@ from prompt_toolkit.patch_stdout import patch_stdout
 
 from .audio import AudioBackend, AudioError
 from .protocol import MessageType, ProtocolError, SecureChannel
-from .terminal_style import BOLD, colors_enabled, CYAN, GREEN, MAGENTA, paint, RED, WHITE, YELLOW
+from .terminal_style import BOLD, CYAN, GREEN, MAGENTA, RED, WHITE, YELLOW, colors_enabled, paint
 
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
@@ -118,7 +118,11 @@ class InteractiveSession:
                     text = message.payload.decode("utf-8", errors="replace")
                     print(paint("[Gegenstelle]", BOLD, MAGENTA) + " " + safe_display(text), flush=True)
                 elif message.kind == MessageType.AUDIO_OPUS:
-                    print(f"{paint('[Gegenstelle · Audio]', BOLD, YELLOW)} {len(message.payload)} Bytes – Wiedergabe …", flush=True)
+                    print(
+                        f"{paint('[Gegenstelle · Audio]', BOLD, YELLOW)} "
+                        f"{len(message.payload)} Bytes – Wiedergabe …",
+                        flush=True,
+                    )
                     try:
                         self.audio.play_opus(message.payload)
                     except AudioError as exc:

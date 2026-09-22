@@ -89,4 +89,6 @@ def derive_keys(
         info=b"OnionCall-v3/session-keys",
     ).derive(shared + psk)
     client_to_server, server_to_client = material[:32], material[32:]
-    return SessionKeys(client_to_server, server_to_client) if client else SessionKeys(server_to_client, client_to_server)
+    if client:
+        return SessionKeys(client_to_server, server_to_client)
+    return SessionKeys(server_to_client, client_to_server)

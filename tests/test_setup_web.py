@@ -8,6 +8,7 @@ import urllib.request
 
 from scripts.setup_web import create_server
 
+
 class BrowserSetupTests(unittest.TestCase):
     def setUp(self) -> None:
         self.token = "test-token-123"

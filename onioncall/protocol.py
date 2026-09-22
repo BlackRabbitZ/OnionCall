@@ -11,18 +11,18 @@ from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 
 from .crypto import (
+    HELLO_SIZE,
+    PROOF_SIZE,
+    SIGNATURE_SIZE,
     AuthenticationError,
     derive_keys,
-    HELLO_SIZE,
     make_hello,
     new_key_pair,
     parse_hello,
     proof,
-    PROOF_SIZE,
-    SIGNATURE_SIZE,
     verify_proof,
 )
-from .identity import fingerprint, LocalIdentity, verify_signature
+from .identity import LocalIdentity, fingerprint, verify_signature
 
 HEADER = struct.Struct("!BBQI")
 FRAME_VERSION = 1
@@ -84,7 +84,7 @@ def perform_client_handshake(
     identity: LocalIdentity,
     expected_fingerprint: str | None = None,
     timeout: float = 20.0,
-) -> "SecureChannel":
+) -> SecureChannel:
     previous_timeout = sock.gettimeout()
     sock.settimeout(timeout)
     try:
@@ -118,7 +118,7 @@ def perform_server_handshake(
     identity: LocalIdentity,
     expected_fingerprint: str | None = None,
     timeout: float = 20.0,
-) -> "SecureChannel":
+) -> SecureChannel:
     previous_timeout = sock.gettimeout()
     sock.settimeout(timeout)
     try:

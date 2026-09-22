@@ -2,24 +2,11 @@ from __future__ import annotations
 
 import argparse
 import getpass
-import os
 import platform
 import shutil
 import socket
 import sys
 from contextlib import suppress
-
-def _configure_utf8_stdio() -> None:
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is not None:
-            try:
-                reconfigure(encoding="utf-8", errors="replace")
-            except (OSError, ValueError):
-                pass
-
-
-_configure_utf8_stdio()
 
 from . import __version__
 from .audio import AudioBackend, AudioError, is_termux, missing_audio_commands
@@ -49,6 +36,17 @@ from .session import InteractiveSession
 from .terminal_style import BOLD, CYAN, DIM, MAGENTA, RED, WHITE, YELLOW, brand, paint, status
 from .tor import TorError, TorProcess, loopback_connect, socks5_connect, validate_loopback_host, validate_onion
 from .webgui import run_gui
+
+
+def _configure_utf8_stdio() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            with suppress(OSError, ValueError):
+                reconfigure(encoding="utf-8", errors="replace")
+
+
+_configure_utf8_stdio()
 
 
 def parser() -> argparse.ArgumentParser:
@@ -209,7 +207,13 @@ def _menu() -> int:
         print("\n" + paint("═" * 56, MAGENTA))
         print(" " * 14 + brand(__version__))
         print(paint("═" * 56, MAGENTA))
-        print("1  Gespräch empfangen\n2  Person anrufen\n3  Kontaktprofile anzeigen\n4  Sicherheitsdiagnose\n0  Beenden")
+        print(
+            "1  Gespräch empfangen\n"
+            "2  Person anrufen\n"
+            "3  Kontaktprofile anzeigen\n"
+            "4  Sicherheitsdiagnose\n"
+            "0  Beenden"
+        )
         try:
             choice = input("Auswahl: ").strip()
         except EOFError:
@@ -247,7 +251,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command in {"menu", "terminal"}:
             return _menu()
         if args.command == "init":
-            home = app_home(); ensure_private_dir(home); save_config(load_config(home), home); load_or_create_identity(home)
+            home = app_home()
+            ensure_private_dir(home)
+            save_config(load_config(home), home)
+            load_or_create_identity(home)
             try:
                 generate_secret(home, replace=args.replace)
             except ConfigError:
@@ -258,56 +265,94 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "show-secret":
             if not args.confirm:
                 raise ConfigError("Die Anzeige legt den Schlüssel offen; erneut mit --confirm aufrufen")
-            print(peer_secret_token(load_peer(args.peer))); return 0
+            print(peer_secret_token(load_peer(args.peer)))
+            return 0
         if args.command == "set-secret":
             token = getpass.getpass("Verbindungsschlüssel (Eingabe bleibt unsichtbar): ").strip()
-            if not token: raise ConfigError("Verbindungsschlüssel darf nicht leer sein")
-            import_peer_secret(args.peer, token); print("Verbindungsschlüssel sicher gespeichert."); return 0
+            if not token:
+                raise ConfigError("Verbindungsschlüssel darf nicht leer sein")
+            import_peer_secret(args.peer, token)
+            print("Verbindungsschlüssel sicher gespeichert.")
+            return 0
         if args.command == "peer-add":
             address = validate_onion(args.address) if args.address else None
             peer = create_peer(args.name, onion=address)
-            print(f"Kontakt {peer.name} erstellt.\nSchlüssel zur sicheren Weitergabe:\n{peer_secret_token(peer)}"); return 0
+            print(
+                f"Kontakt {peer.name} erstellt.\n"
+                f"Schlüssel zur sicheren Weitergabe:\n{peer_secret_token(peer)}"
+            )
+            return 0
         if args.command == "peer-list":
             for name in list_peers():
-                peer = load_peer(name); print(f"{name}\t{peer.fingerprint or '-'}\t{peer.onion or '-'}")
+                peer = load_peer(name)
+                print(f"{name}\t{peer.fingerprint or '-'}\t{peer.onion or '-'}")
             return 0
         if args.command == "tor-auth-create":
-            print(generate_authorized_client(args.name, replace=args.replace)); return 0
+            print(generate_authorized_client(args.name, replace=args.replace))
+            return 0
         if args.command == "tor-auth-import":
             token = getpass.getpass("Privater Tor-Authorization-Schlüssel: ").strip()
-            if not token: raise ConfigError("Tor-Authorization-Schlüssel darf nicht leer sein")
-            print(import_client_authorization(validate_onion(args.address), token, name=args.name)); return 0
+            if not token:
+                raise ConfigError("Tor-Authorization-Schlüssel darf nicht leer sein")
+            print(import_client_authorization(validate_onion(args.address), token, name=args.name))
+            return 0
         if args.command == "tor-auth-revoke":
             return 0 if revoke_server_authorization(args.name) else 1
         if args.command == "tor-auth-remove-client":
             return 0 if remove_client_authorization(args.name) else 1
         if args.command == "tor-auth-list":
             print("Server / erlaubte Clients: " + (", ".join(list_server_authorizations()) or "keine"))
-            print("Client / private Service-Zugänge: " + (", ".join(list_client_authorizations()) or "keine")); return 0
-        if args.command == "doctor": return _doctor()
+            print("Client / private Service-Zugänge: " + (", ".join(list_client_authorizations()) or "keine"))
+            return 0
+        if args.command == "doctor":
+            return _doctor()
+
         _ensure_initialized()
-        if args.command == "listen": return _listen(args.peer, temporary_onion=args.temporary_onion, timeout=args.tor_timeout)
+        if args.command == "listen":
+            return _listen(
+                args.peer,
+                temporary_onion=args.temporary_onion,
+                timeout=args.tor_timeout,
+            )
         if args.command == "call":
-            peer = load_peer(args.peer); address = args.address or peer.onion or load_config().last_address
-            if not address: raise ConfigError("Keine Onion-Adresse angegeben oder im Kontaktprofil gespeichert")
+            peer = load_peer(args.peer)
+            address = args.address or peer.onion or load_config().last_address
+            if not address:
+                raise ConfigError("Keine Onion-Adresse angegeben oder im Kontaktprofil gespeichert")
             return _call(address, args.peer, args.tor_timeout, existing_tor=args.existing_tor)
         if args.command == "direct-listen":
-            host = validate_loopback_host(args.host); config = load_config(); peer = load_peer(args.peer); identity = load_or_create_identity()
+            host = validate_loopback_host(args.host)
+            config = load_config()
+            peer = load_peer(args.peer)
+            identity = load_or_create_identity()
             family = socket.AF_INET6 if ":" in host else socket.AF_INET
-            listener = socket.socket(family, socket.SOCK_STREAM); listener.bind((host, args.port))
+            listener = socket.socket(family, socket.SOCK_STREAM)
+            listener.bind((host, args.port))
             try:
-                channel = accept_authenticated(listener, peer.key, identity, peer.fingerprint); _pin_after_handshake(peer, channel); InteractiveSession(channel, _audio(config)).run()
-            finally: listener.close()
+                channel = accept_authenticated(listener, peer.key, identity, peer.fingerprint)
+                _pin_after_handshake(peer, channel)
+                InteractiveSession(channel, _audio(config)).run()
+            finally:
+                listener.close()
             return 0
         if args.command == "direct-call":
-            host = validate_loopback_host(args.host); config = load_config(); peer = load_peer(args.peer); identity = load_or_create_identity()
-            connection = loopback_connect(host, args.port, timeout=20); connection.settimeout(None)
-            channel = perform_client_handshake(connection, peer.key, identity, peer.fingerprint); _pin_after_handshake(peer, channel); InteractiveSession(channel, _audio(config)).run(); return 0
+            host = validate_loopback_host(args.host)
+            config = load_config()
+            peer = load_peer(args.peer)
+            identity = load_or_create_identity()
+            connection = loopback_connect(host, args.port, timeout=20)
+            connection.settimeout(None)
+            channel = perform_client_handshake(connection, peer.key, identity, peer.fingerprint)
+            _pin_after_handshake(peer, channel)
+            InteractiveSession(channel, _audio(config)).run()
+            return 0
         return 2
     except KeyboardInterrupt:
-        print(paint("\nAbgebrochen.", YELLOW, stream=sys.stderr), file=sys.stderr); return 130
+        print(paint("\nAbgebrochen.", YELLOW, stream=sys.stderr), file=sys.stderr)
+        return 130
     except (ConfigError, TorError, AuthenticationError, AudioError, OSError, RuntimeError) as exc:
-        print(paint(f"Fehler: {exc}", BOLD, RED, stream=sys.stderr), file=sys.stderr); return 1
+        print(paint(f"Fehler: {exc}", BOLD, RED, stream=sys.stderr), file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

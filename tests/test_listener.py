@@ -14,32 +14,40 @@ from onioncall.protocol import perform_client_handshake
 
 
 class ListenerTests(unittest.TestCase):
-    def test_bad_first_client_does_not_consume_listener(self):
+    def test_bad_first_client_does_not_consume_listener(self) -> None:
         psk = os.urandom(32)
-        with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
-            sid = load_or_create_identity(Path(a))
-            cid = load_or_create_identity(Path(b))
+        with tempfile.TemporaryDirectory() as server_tmp, tempfile.TemporaryDirectory() as client_tmp:
+            server_identity = load_or_create_identity(Path(server_tmp))
+            client_identity = load_or_create_identity(Path(client_tmp))
             listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            listener.bind(('127.0.0.1', 0))
+            listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
             result = {}
 
-            def server():
-                result['channel'] = accept_authenticated(listener, psk, sid, handshake_timeout=.5)
+            def server() -> None:
+                result["channel"] = accept_authenticated(
+                    listener,
+                    psk,
+                    server_identity,
+                    handshake_timeout=1.0,
+                )
 
             thread = threading.Thread(target=server)
             thread.start()
-            bad = socket.create_connection(('127.0.0.1', port))
-            bad.sendall(b'garbage')
+            bad = socket.create_connection(("127.0.0.1", port))
+            bad.sendall(b"garbage")
             bad.close()
-            time.sleep(.3)
-            good = socket.create_connection(('127.0.0.1', port))
-            channel = perform_client_handshake(good, psk, cid, timeout=2)
+            time.sleep(0.3)
+            good = socket.create_connection(("127.0.0.1", port))
+            channel = perform_client_handshake(good, psk, client_identity, timeout=2)
             thread.join(3)
+
             self.assertFalse(thread.is_alive())
-            self.assertIsNotNone(result.get('channel'))
-            channel.close(); result['channel'].close(); listener.close()
+            self.assertIsNotNone(result.get("channel"))
+            channel.close()
+            result["channel"].close()
+            listener.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

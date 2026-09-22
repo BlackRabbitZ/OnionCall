@@ -18,6 +18,7 @@ import threading
 import time
 import webbrowser
 from collections import deque
+from contextlib import suppress
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -464,16 +465,11 @@ def main() -> int:
     if sys.stdout is not None:
         print(f"OnionCall Browser-Setup: {server.origin}/", flush=True)
         print("Die Installation wird im Browser durchgeführt. Dieses Fenster kann im Hintergrund bleiben.", flush=True)
-    try:
+    with suppress(Exception):
         webbrowser.open(url, new=1, autoraise=True)
-    except Exception:
-        pass
-    try:
+    with suppress(KeyboardInterrupt):
         server.serve_forever(poll_interval=0.25)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
+    server.server_close()
     return 0
 
 

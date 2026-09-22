@@ -14,10 +14,23 @@ from onioncall.peers import (
     pin_peer_fingerprint,
 )
 
+
 class PeerTests(unittest.TestCase):
-    def test_profiles(self):
+    def test_profiles(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            home=Path(tmp); generate_secret(home); p=create_peer('alice',home=home); token=peer_secret_token(p)
-            self.assertIn('default',list_peers(home)); self.assertIn('alice',list_peers(home)); self.assertEqual(import_peer_secret('bob',token,home=home).key,p.key)
-            fp='BRZ-'+'-'.join(['ABCD']*8); pin_peer_fingerprint(load_peer('alice',home),fp,home); self.assertEqual(load_peer('alice',home).fingerprint,fp)
-if __name__=='__main__': unittest.main()
+            home = Path(tmp)
+            generate_secret(home)
+            peer = create_peer("alice", home=home)
+            token = peer_secret_token(peer)
+
+            self.assertIn("default", list_peers(home))
+            self.assertIn("alice", list_peers(home))
+            self.assertEqual(import_peer_secret("bob", token, home=home).key, peer.key)
+
+            fingerprint = "BRZ-" + "-".join(["ABCD"] * 8)
+            pin_peer_fingerprint(load_peer("alice", home), fingerprint, home)
+            self.assertEqual(load_peer("alice", home).fingerprint, fingerprint)
+
+
+if __name__ == "__main__":
+    unittest.main()

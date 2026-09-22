@@ -4,14 +4,15 @@ import base64
 import json
 import re
 import secrets
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
 from .config import (
+    ConfigError,
     app_home,
     atomic_private_write,
     atomic_secret_write,
-    ConfigError,
     ensure_private_dir,
     load_secret,
     parse_secret,
@@ -54,11 +55,9 @@ def _key_path(name: str, home: Path | None = None) -> Path:
 
 def list_peers(home: Path | None = None) -> list[str]:
     names = {p.stem for p in peers_dir(home).glob("*.key")}
-    try:
+    with suppress(ConfigError):
         load_secret(home)
         names.add("default")
-    except ConfigError:
-        pass
     return sorted(names)
 
 

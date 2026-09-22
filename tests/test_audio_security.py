@@ -5,7 +5,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from onioncall.audio import _ogg_crc, AudioBackend, AudioError
+from onioncall.audio import AudioBackend, AudioError, _ogg_crc
+
 
 def ogg_page(packets: list[bytes]) -> bytes:
     lacing = bytearray()
@@ -62,12 +63,13 @@ class AudioSecurityTests(unittest.TestCase):
             binary = root / "tools" / "ffmpeg" / "ffmpeg-9.0.2" / "bin" / "ffmpeg.exe"
             binary.parent.mkdir(parents=True)
             binary.write_bytes(b"MZ")
-            with mock.patch("onioncall.audio.platform.system", return_value="Windows"), \
-                 mock.patch("onioncall.audio.PROJECT_ROOT", root):
+            with (
+                mock.patch("onioncall.audio.platform.system", return_value="Windows"),
+                mock.patch("onioncall.audio.PROJECT_ROOT", root),
+            ):
                 from onioncall.audio import resolve_audio_command
+
                 self.assertEqual(resolve_audio_command("ffmpeg"), str(binary.resolve()))
-
-
 
 if __name__ == "__main__":
     unittest.main()

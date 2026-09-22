@@ -8,7 +8,9 @@ import subprocess
 import tempfile
 import time
 import wave
+from contextlib import suppress
 from pathlib import Path
+
 
 class AudioError(RuntimeError):
     pass
@@ -85,17 +87,13 @@ class AudioBackend:
         self.runtime_dir = runtime_dir
         self.max_seconds = max_seconds
         runtime_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        try:
+        with suppress(OSError):
             os.chmod(runtime_dir, 0o700)
-        except OSError:
-            pass
 
     def _private_temp(self, suffix: str) -> Path:
         fd, name = tempfile.mkstemp(prefix="audio-", suffix=suffix, dir=self.runtime_dir)
-        try:
+        with suppress(OSError):
             os.fchmod(fd, 0o600)
-        except OSError:
-            pass
         os.close(fd)
         return Path(name)
 
@@ -105,7 +103,16 @@ class AudioBackend:
             return configured
         try:
             result = subprocess.run(
-                [resolve_audio_command("ffmpeg") or "ffmpeg", "-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy"],
+                [
+                    resolve_audio_command("ffmpeg") or "ffmpeg",
+                    "-hide_banner",
+                    "-list_devices",
+                    "true",
+                    "-f",
+                    "dshow",
+                    "-i",
+                    "dummy",
+                ],
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
@@ -436,10 +443,8 @@ class AudioBackend:
         wav = self._private_temp(".wav")
         try:
             encoded.write_bytes(payload)
-            try:
+            with suppress(OSError):
                 os.chmod(encoded, 0o600)
-            except OSError:
-                pass
             self._run(self._decoder_command(encoded, wav), timeout=self.max_seconds + 20)
             if not wav.exists() or wav.stat().st_size > self._max_wav_size():
                 raise AudioError("Dekodierte Audiodatei überschreitet das Sicherheitslimit")
@@ -480,7 +485,7 @@ class AudioBackend:
             "PATH": path_value,
             "HOME": str(Path.home()),
             "LANG": "C",
-            "SystemRoot": os.environ.get("SystemRoot", ""),
+            "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
             "WINDIR": os.environ.get("WINDIR", ""),
         }
         kwargs: dict[str, object] = {}

@@ -23,17 +23,17 @@ import time
 import urllib.request
 import venv
 import zipfile
+from contextlib import suppress
 from pathlib import Path
+
 
 def _configure_utf8_stdio() -> None:
     """Force UTF-8 even when Windows inherits a legacy charmap/code page."""
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
-            try:
+            with suppress(OSError, ValueError):
                 reconfigure(encoding="utf-8", errors="replace")
-            except (OSError, ValueError):
-                pass
 
 
 _configure_utf8_stdio()
@@ -331,10 +331,9 @@ def wait_tor_ready(
             progress(ui_pct, f"{ui_label} … {pct} %")
             last_reported = pct
 
-        if pct == 100:
-            if _wait_tcp_port(socks_port, 1.5) and _wait_tcp_port(http_port, 1.5):
-                progress(ui_start + ui_span + 1, f"{ui_label}: verbunden")
-                return
+        if pct == 100 and _wait_tcp_port(socks_port, 1.5) and _wait_tcp_port(http_port, 1.5):
+            progress(ui_start + ui_span + 1, f"{ui_label}: verbunden")
+            return
         time.sleep(0.25)
 
     text = _tor_log_text(log)
@@ -422,7 +421,8 @@ def pip_install_over_tor(python: Path) -> None:
         raise SystemExit(
             "Fehlende Python-Pakete müssen geladen werden, aber Tor wurde nicht gefunden.\n"
             "Installiere Tor/Tor Browser oder setze ONIONCALL_TOR_BINARY auf tor.exe.\n"
-            "Es gibt absichtlich keinen automatischen Clearnet-Fallback. Alternativ explizit --allow-clearnet verwenden."
+            "Es gibt absichtlich keinen automatischen Clearnet-Fallback. "
+            "Alternativ explizit --allow-clearnet verwenden."
         )
 
     errors: list[str] = []
@@ -601,7 +601,17 @@ def install_dependencies(python: Path, *, allow_clearnet: bool) -> None:
         return
     if allow_clearnet:
         print("Python-Abhängigkeiten werden direkt geladen (--allow-clearnet) …")
-        run([str(python), "-m", "pip", "install", "--disable-pip-version-check", "--no-warn-script-location", *PYTHON_DEPENDENCIES])
+        run(
+            [
+                str(python),
+                "-m",
+                "pip",
+                "install",
+                "--disable-pip-version-check",
+                "--no-warn-script-location",
+                *PYTHON_DEPENDENCIES,
+            ]
+        )
     else:
         pip_install_over_tor(python)
 
@@ -618,7 +628,10 @@ def persist_tor_path(root: Path, python: Path) -> None:
         return
     env = os.environ.copy()
     env["PYTHONPATH"] = str(root) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
-    code = f"from onioncall.config import load_config,save_config; c=load_config(); c.tor_binary={tor!r}; save_config(c)"
+    code = (
+        "from onioncall.config import load_config, save_config; "
+        f"c = load_config(); c.tor_binary = {tor!r}; save_config(c)"
+    )
     run([str(python), "-c", code], cwd=root, env=env)
 
 
@@ -660,7 +673,10 @@ def main() -> int:
             install_windows_ffmpeg(allow_clearnet=args.allow_clearnet)
         except (RuntimeError, TimeoutError, OSError) as exc:
             print(f"WARNUNG: FFmpeg konnte nicht automatisch eingerichtet werden: {exc}", flush=True)
-            print("Text/Chat bleibt nutzbar. Audio kann später durch erneutes Setup nachinstalliert werden.", flush=True)
+            print(
+                "Text/Chat bleibt nutzbar. Audio kann später durch erneutes Setup nachinstalliert werden.",
+                flush=True,
+            )
             progress(79, "FFmpeg fehlt weiterhin – Text/Chat bleibt nutzbar")
     progress(80, "OnionCall wird initialisiert …")
     initialize(root, python)

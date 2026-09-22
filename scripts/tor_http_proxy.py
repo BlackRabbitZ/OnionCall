@@ -13,7 +13,7 @@ import select
 import socket
 import socketserver
 import struct
-from dataclasses import dataclass
+from contextlib import suppress
 
 MAX_HEADER = 16 * 1024
 RELAY_BUFFER = 64 * 1024
@@ -37,26 +37,20 @@ def _recv_exact(sock: socket.socket, amount: int) -> bytes:
 def tor_socks_connect(host: str, port: int, socks_port: int) -> socket.socket:
     if not (1 <= port <= 65535):
         raise ProxyError("Ungueltiger Zielport")
-
     sock = socket.create_connection(("127.0.0.1", socks_port), timeout=CONNECT_TIMEOUT)
     try:
         sock.sendall(b"\x05\x01\x00")
         if _recv_exact(sock, 2) != b"\x05\x00":
             raise ProxyError("Tor-SOCKS verweigert die Verbindung")
-
         try:
             ip = ipaddress.ip_address(host)
         except ValueError:
             encoded = host.encode("idna")
             if not encoded or len(encoded) > 253:
-                raise ProxyError("Ungueltiger Zielhostname")
+                raise ProxyError("Ungueltiger Zielhostname") from None
             address = b"\x03" + bytes((len(encoded),)) + encoded
         else:
-            if ip.version == 4:
-                address = b"\x01" + ip.packed
-            else:
-                address = b"\x04" + ip.packed
-
+            address = b"\x01" + ip.packed if ip.version == 4 else b"\x04" + ip.packed
         sock.sendall(b"\x05\x01\x00" + address + struct.pack("!H", port))
         head = _recv_exact(sock, 4)
         if head[0] != 5 or head[1] != 0:
@@ -150,10 +144,8 @@ class _ConnectHandler(socketserver.BaseRequestHandler):
             self.request.settimeout(None)
             _relay(self.request, remote)
         except (OSError, UnicodeError, ProxyError):
-            try:
+            with suppress(OSError):
                 self.request.sendall(b"HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n")
-            except OSError:
-                pass
         finally:
             if remote is not None:
                 remote.close()

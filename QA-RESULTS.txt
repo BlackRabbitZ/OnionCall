@@ -2,18 +2,24 @@ BRZ – OnionCall 2.7.6 CI/Ruff-Fixed
 QA-Datum: 2026-09-22
 
 Behoben:
-- Ruff-/CI-Codequalitätsprobleme in onioncall/, scripts/ und tests/ bereinigt.
-- Unter anderem subprocess capture_output, Importordnung, moderne Python-Syntax,
-  vereinfachte Bedingungen und weitere von den aktivierten Ruff-Regeln beanstandete Stellen.
-- Bestehende README-Struktur wurde wiederhergestellt und NICHT neu aufgebaut.
+- Die im GitHub-Actions-Ruff-Log gemeldeten Fehlerklassen in onioncall/, scripts/ und tests/ bereinigt.
+- Insbesondere E701/E702 (mehrere Statements pro Zeile), E501 außerhalb der eingebetteten
+  Browser-UIs, I001/E402/F401, UP037/UP041/UP022, SIM102/SIM105/SIM108/SIM112/SIM117
+  sowie B017/B904 berücksichtigt.
+- Lange eingebettete HTML/JavaScript-Zeilen in onioncall/webgui.py und scripts/setup_web.py
+  bleiben gezielt von E501 ausgenommen; die übrigen Ruff-Regeln bleiben dort aktiv.
+- Bestehende README-Struktur wurde beibehalten und NICHT neu aufgebaut.
 
 In dieser Linux-Prüfumgebung erfolgreich getestet:
 - Python compileall: PASS
-- Unit-/Regressionstests: 35/35 PASS
-- Python-Wheel-Build: PASS, sofern unten nicht anders vermerkt
+- Unit-/Regressionstests: 45/45 PASS
+- Python-Wheel-Build mit pip wheel --no-deps --no-build-isolation: PASS
+- Zusätzlicher lokaler AST/Token-Check für die im bereitgestellten Ruff-Log vorkommenden
+  Fehlerklassen: 0 verbleibende Treffer
 
-Hinweis zur Ruff-Prüfung:
-- Die Dateien wurden für die in pyproject.toml aktivierten Regeln E/F/I/UP/B/SIM bereinigt.
-- Der Ruff-0.16.8-Binärtest konnte in dieser Laufzeit nicht erneut ausgeführt werden,
-  weil Ruff lokal nicht installiert ist und der externe Binär-/Paketdownload der
-  Arbeitsumgebung blockiert ist. GitHub Actions führt exakt diesen Check nach dem Push aus.
+Hinweis zur exakten Ruff-Binärprüfung:
+- Der Projektstand pinnt Ruff 0.16.8 und GitHub Actions führt
+  `python -m ruff check onioncall scripts tests` aus.
+- Der Ruff-0.16.8-Binärtest konnte in dieser isolierten Laufzeit selbst nicht gestartet werden,
+  weil Ruff hier nicht vorinstalliert ist und die Laufzeit keinen direkten Paketdownload zulässt.
+- Der bereitgestellte vollständige Ruff-Log wurde als Grundlage für die Bereinigung verwendet.

@@ -16,6 +16,7 @@ from onioncall.config import (
     secret_token,
 )
 
+
 class ConfigSecurityTests(unittest.TestCase):
     def test_generated_secret_roundtrip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -25,15 +26,13 @@ class ConfigSecurityTests(unittest.TestCase):
 
     def test_manual_raw_base64_import_is_rejected(self) -> None:
         raw = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
-        with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(ConfigError):
-                import_secret(raw, Path(tmp))
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(ConfigError):
+            import_secret(raw, Path(tmp))
 
     def test_obviously_weak_versioned_key_is_rejected(self) -> None:
         weak = secret_token(b"A" * 32)
-        with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(ConfigError):
-                import_secret(weak, Path(tmp))
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(ConfigError):
+            import_secret(weak, Path(tmp))
 
     def test_random_onioncall_token_is_accepted(self) -> None:
         key = secrets.token_bytes(32)

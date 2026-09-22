@@ -7,7 +7,7 @@ from contextlib import suppress
 
 from .crypto import AuthenticationError
 from .identity import LocalIdentity
-from .protocol import perform_server_handshake, SecureChannel
+from .protocol import SecureChannel, perform_server_handshake
 
 DEFAULT_HANDSHAKE_TIMEOUT = 5.0
 DEFAULT_MAX_PENDING = 6
@@ -90,7 +90,7 @@ def accept_authenticated(
 
             try:
                 connection, _ = listener.accept()
-            except socket.timeout:
+            except TimeoutError:
                 continue
 
             with lock:

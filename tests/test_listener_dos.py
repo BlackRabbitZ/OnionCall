@@ -11,6 +11,7 @@ from onioncall.identity import load_or_create_identity
 from onioncall.listener import accept_authenticated
 from onioncall.protocol import perform_client_handshake
 
+
 class ListenerDosTests(unittest.TestCase):
     def test_idle_client_does_not_block_legitimate_handshake(self) -> None:
         psk = b"P" * 32

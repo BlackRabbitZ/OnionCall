@@ -16,10 +16,10 @@ from importlib.resources import files
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__
-from .audio import AudioBackend, AudioError, is_termux, missing_audio_commands
+from .audio import AudioBackend, is_termux, missing_audio_commands
 from .config import (
-    app_home,
     ConfigError,
+    app_home,
     ensure_private_dir,
     generate_secret,
     load_config,
@@ -37,7 +37,7 @@ from .peers import (
     set_peer_onion,
 )
 from .protocol import perform_client_handshake
-from .tor import socks5_connect, TorError, TorProcess, validate_onion
+from .tor import TorError, TorProcess, socks5_connect, validate_onion
 
 MAX_REQUEST = 64 * 1024
 ICON_PNG = files("onioncall").joinpath("assets/onioncall-icon.png").read_bytes()
@@ -60,7 +60,10 @@ class GuiController:
         self._emit("system", "BRZ – OnionCall GUI ist bereit.")
 
     def ensure_initialized(self) -> None:
-        home = app_home(); ensure_private_dir(home); save_config(load_config(home), home); load_or_create_identity(home)
+        home = app_home()
+        ensure_private_dir(home)
+        save_config(load_config(home), home)
+        load_or_create_identity(home)
         try:
             load_peer("default", home)
         except ConfigError:
@@ -68,22 +71,33 @@ class GuiController:
 
     @staticmethod
     def _audio(config=None) -> AudioBackend:
-        config = config or load_config(); runtime = app_home() / "runtime"; ensure_private_dir(runtime)
+        config = config or load_config()
+        runtime = app_home() / "runtime"
+        ensure_private_dir(runtime)
         return AudioBackend(runtime, config.max_audio_seconds)
 
     def _emit(self, kind: str, message: str) -> None:
         with self.lock:
             self.event_id += 1
-            self.events.append({"id": self.event_id, "kind": kind, "message": message, "time": time.strftime("%H:%M:%S")})
+            self.events.append(
+                {
+                    "id": self.event_id,
+                    "kind": kind,
+                    "message": message,
+                    "time": time.strftime("%H:%M:%S"),
+                }
+            )
 
     def _set_state(self, state: str, detail: str) -> None:
         with self.lock:
             self.state, self.detail = state, detail
 
     def status(self, after: int = 0) -> dict[str, object]:
-        self.ensure_initialized(); config = load_config()
+        self.ensure_initialized()
+        config = load_config()
         try:
-            load_peer("default"); key_ok = True
+            load_peer("default")
+            key_ok = True
         except ConfigError:
             key_ok = False
         with self.lock:
@@ -106,7 +120,7 @@ class GuiController:
                 "last_address": config.last_address,
                 "platform": "Android/Termux" if is_termux() else platform.system(),
                 "peers": list_peers(),
-                "events": [e for e in self.events if int(e["id"]) > after],
+                "events": [event for event in self.events if int(event["id"]) > after],
                 "last_event": self.event_id,
             }
 
@@ -118,32 +132,63 @@ class GuiController:
                 raise RuntimeError("Es besteht bereits eine Verbindung")
 
     def start_listen(self, peer_name: str = "default", temporary: bool = False) -> None:
-        self.ensure_initialized(); self._busy_guard(); self.stop_requested.clear()
+        self.ensure_initialized()
+        self._busy_guard()
+        self.stop_requested.clear()
+
         def work() -> None:
-            config = load_config(); peer = load_peer(peer_name); identity = load_or_create_identity()
-            listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM); listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            config = load_config()
+            peer = load_peer(peer_name)
+            identity = load_or_create_identity()
+            listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             tor = TorProcess(config, service=True, temporary_service=temporary or config.temporary_onion)
-            with self.lock: self.listener, self.tor = listener, tor
+            with self.lock:
+                self.listener, self.tor = listener, tor
             try:
-                listener.bind(("127.0.0.1", config.listen_port)); self._set_state("starting", "Tor wird gestartet …")
-                address = tor.start(180.0); self.own_address = address; self._set_state("waiting", "Warte auf authentifizierten Kontakt …")
+                listener.bind(("127.0.0.1", config.listen_port))
+                self._set_state("starting", "Tor wird gestartet …")
+                address = tor.start(180.0)
+                self.own_address = address
+                self._set_state("waiting", "Warte auf authentifizierten Kontakt …")
                 self._emit("system", f"Onion-Adresse bereit: {address}")
-                channel = accept_authenticated(listener, peer.key, identity, peer.fingerprint, stop_event=self.stop_requested)
-                if channel.peer_fingerprint: pin_peer_fingerprint(peer, channel.peer_fingerprint)
+                channel = accept_authenticated(
+                    listener,
+                    peer.key,
+                    identity,
+                    peer.fingerprint,
+                    stop_event=self.stop_requested,
+                )
+                if channel.peer_fingerprint:
+                    pin_peer_fingerprint(peer, channel.peer_fingerprint)
                 session = GuiSession(channel, self._audio(config), self._emit)
-                with self.lock: self.session = session
-                self._set_state("connected", "Sichere Verbindung hergestellt"); session.run()
+                with self.lock:
+                    self.session = session
+                self._set_state("connected", "Sichere Verbindung hergestellt")
+                session.run()
             except Exception as exc:
-                if not self.stop_requested.is_set(): self._emit("error", str(exc))
+                if not self.stop_requested.is_set():
+                    self._emit("error", str(exc))
             finally:
-                with suppress(OSError): listener.close()
+                with suppress(OSError):
+                    listener.close()
                 tor.stop()
-                with self.lock: self.listener = None; self.tor = None; self.session = None; self.own_address = None
+                with self.lock:
+                    self.listener = None
+                    self.tor = None
+                    self.session = None
+                    self.own_address = None
                 self._set_state("idle", "Bereit")
-        self.worker = threading.Thread(target=work, name="onioncall-gui-listen", daemon=True); self.worker.start()
+
+        self.worker = threading.Thread(target=work, name="onioncall-gui-listen", daemon=True)
+        self.worker.start()
 
     def start_call(self, address: str, peer_name: str = "default") -> None:
-        self.ensure_initialized(); self._busy_guard(); address = validate_onion(address); self.stop_requested.clear()
+        self.ensure_initialized()
+        self._busy_guard()
+        address = validate_onion(address)
+        self.stop_requested.clear()
+
         def work() -> None:
             config = load_config()
             config.last_address = address
@@ -152,63 +197,100 @@ class GuiController:
             identity = load_or_create_identity()
             set_peer_onion(peer, address)
             tor = TorProcess(config, service=False)
-            with self.lock: self.tor = tor
+            with self.lock:
+                self.tor = tor
             try:
-                self._set_state("starting", "Tor wird gestartet …"); tor.start(180.0); self._set_state("connecting", "Verbindung wird authentifiziert …")
-                sock = socks5_connect(address, config.listen_port, config.socks_port); channel = perform_client_handshake(sock, peer.key, identity, peer.fingerprint)
-                if channel.peer_fingerprint: pin_peer_fingerprint(peer, channel.peer_fingerprint)
+                self._set_state("starting", "Tor wird gestartet …")
+                tor.start(180.0)
+                self._set_state("connecting", "Verbindung wird authentifiziert …")
+                sock = socks5_connect(address, config.listen_port, config.socks_port)
+                channel = perform_client_handshake(sock, peer.key, identity, peer.fingerprint)
+                if channel.peer_fingerprint:
+                    pin_peer_fingerprint(peer, channel.peer_fingerprint)
                 session = GuiSession(channel, self._audio(config), self._emit)
-                with self.lock: self.session = session
-                self._set_state("connected", "Sichere Verbindung hergestellt"); session.run()
+                with self.lock:
+                    self.session = session
+                self._set_state("connected", "Sichere Verbindung hergestellt")
+                session.run()
             except Exception as exc:
-                if not self.stop_requested.is_set(): self._emit("error", str(exc))
+                if not self.stop_requested.is_set():
+                    self._emit("error", str(exc))
             finally:
                 tor.stop()
-                with self.lock: self.tor = None; self.session = None
+                with self.lock:
+                    self.tor = None
+                    self.session = None
                 self._set_state("idle", "Bereit")
-        self.worker = threading.Thread(target=work, name="onioncall-gui-call", daemon=True); self.worker.start()
+
+        self.worker = threading.Thread(target=work, name="onioncall-gui-call", daemon=True)
+        self.worker.start()
 
     def disconnect(self) -> None:
         self.stop_requested.set()
-        with self.lock: session, listener, tor = self.session, self.listener, self.tor
-        if session: session.close()
+        with self.lock:
+            session, listener, tor = self.session, self.listener, self.tor
+        if session:
+            session.close()
         if listener:
-            with suppress(OSError): listener.close()
-        if tor: tor.stop()
-        self._set_state("idle", "Bereit"); self._emit("system", "Verbindung beendet.")
+            with suppress(OSError):
+                listener.close()
+        if tor:
+            tor.stop()
+        self._set_state("idle", "Bereit")
+        self._emit("system", "Verbindung beendet.")
 
     def send_text(self, text: str) -> None:
-        with self.lock: session = self.session
-        if not session or session.finished.is_set(): raise RuntimeError("Keine aktive Verbindung")
+        with self.lock:
+            session = self.session
+        if not session or session.finished.is_set():
+            raise RuntimeError("Keine aktive Verbindung")
         session.send_text(text)
 
     def send_audio(self, seconds: int = 5) -> None:
-        if not 1 <= seconds <= load_config().max_audio_seconds: raise ValueError("Ungültige Aufnahmedauer")
-        with self.lock: session = self.session
-        if not session or session.finished.is_set(): raise RuntimeError("Keine aktive Verbindung")
-        if self.audio_busy.is_set(): raise RuntimeError("Audio ist bereits aktiv")
+        if not 1 <= seconds <= load_config().max_audio_seconds:
+            raise ValueError("Ungültige Aufnahmedauer")
+        with self.lock:
+            session = self.session
+        if not session or session.finished.is_set():
+            raise RuntimeError("Keine aktive Verbindung")
+        if self.audio_busy.is_set():
+            raise RuntimeError("Audio ist bereits aktiv")
         self.audio_busy.set()
-        def work():
-            try: session.send_audio(seconds)
-            except Exception as exc: self._emit("error", str(exc))
-            finally: self.audio_busy.clear()
+
+        def work() -> None:
+            try:
+                session.send_audio(seconds)
+            except Exception as exc:
+                self._emit("error", str(exc))
+            finally:
+                self.audio_busy.clear()
+
         threading.Thread(target=work, daemon=True).start()
 
     def test_audio(self) -> None:
-        if self.audio_busy.is_set(): raise RuntimeError("Audio ist bereits aktiv")
+        if self.audio_busy.is_set():
+            raise RuntimeError("Audio ist bereits aktiv")
         self.audio_busy.set()
-        def work():
+
+        def work() -> None:
             try:
-                payload = self._audio().record_opus(3); self._audio().play_opus(payload); self._emit("system", "Audiotest erfolgreich.")
-            except Exception as exc: self._emit("error", f"Audiotest fehlgeschlagen: {exc}")
-            finally: self.audio_busy.clear()
+                payload = self._audio().record_opus(3)
+                self._audio().play_opus(payload)
+                self._emit("system", "Audiotest erfolgreich.")
+            except Exception as exc:
+                self._emit("error", f"Audiotest fehlgeschlagen: {exc}")
+            finally:
+                self.audio_busy.clear()
+
         threading.Thread(target=work, daemon=True).start()
 
     def show_secret(self, peer: str = "default") -> str:
-        self.ensure_initialized(); return peer_secret_token(load_peer(peer))
+        self.ensure_initialized()
+        return peer_secret_token(load_peer(peer))
 
     def set_secret(self, peer: str, secret: str) -> None:
-        import_peer_secret(peer, secret); self._emit("system", f"Schlüssel für {peer} gespeichert.")
+        import_peer_secret(peer, secret)
+        self._emit("system", f"Schlüssel für {peer} gespeichert.")
 
     def shutdown(self) -> None:
         self.disconnect()
@@ -308,6 +390,7 @@ poll();
 class OnionHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
+
     def __init__(self, address, controller):
         super().__init__(address, OnionRequestHandler)
         self.controller = controller
@@ -317,66 +400,167 @@ class OnionHTTPServer(ThreadingHTTPServer):
 
 class OnionRequestHandler(BaseHTTPRequestHandler):
     server: OnionHTTPServer
-    def log_message(self, *_): pass
+
+    def log_message(self, *_) -> None:
+        pass
+
     def _valid_local_request(self) -> bool:
-        if self.client_address[0] not in {"127.0.0.1", "::1"}: return False
+        if self.client_address[0] not in {"127.0.0.1", "::1"}:
+            return False
         host = self.headers.get("Host", "")
-        return host in {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
+        return host in {
+            f"127.0.0.1:{self.server.server_port}",
+            f"localhost:{self.server.server_port}",
+        }
+
     def _security_headers(self) -> None:
-        self.send_header("Cache-Control", "no-store"); self.send_header("X-Content-Type-Options", "nosniff"); self.send_header("X-Frame-Options", "DENY"); self.send_header("Referrer-Policy", "no-referrer"); self.send_header("Permissions-Policy", "camera=(), geolocation=(), usb=()"); self.send_header("Cross-Origin-Opener-Policy", "same-origin"); self.send_header("Cross-Origin-Resource-Policy", "same-origin"); self.send_header("Cross-Origin-Embedder-Policy", "require-corp"); self.send_header("Content-Security-Policy", f"default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{self.server.nonce}'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Permissions-Policy", "camera=(), geolocation=(), usb=()")
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'none'; "
+            "style-src 'unsafe-inline'; "
+            f"script-src 'nonce-{self.server.nonce}'; "
+            "connect-src 'self'; "
+            "img-src 'self'; "
+            "base-uri 'none'; "
+            "frame-ancestors 'none'; "
+            "form-action 'none'",
+        )
+
     def _send(self, body: bytes, content_type: str, status=HTTPStatus.OK) -> None:
-        self.send_response(status); self._security_headers(); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
-    def _json(self, data, status=HTTPStatus.OK) -> None: self._send(json.dumps(data, ensure_ascii=False).encode(), "application/json; charset=utf-8", status)
-    def _authorized(self) -> bool: return self._valid_local_request() and secrets.compare_digest(self.headers.get("X-OnionCall-Token", ""), self.server.token)
+        self.send_response(status)
+        self._security_headers()
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json(self, data, status=HTTPStatus.OK) -> None:
+        self._send(
+            json.dumps(data, ensure_ascii=False).encode(),
+            "application/json; charset=utf-8",
+            status,
+        )
+
+    def _authorized(self) -> bool:
+        return self._valid_local_request() and secrets.compare_digest(
+            self.headers.get("X-OnionCall-Token", ""),
+            self.server.token,
+        )
+
     def do_GET(self) -> None:
-        if not self._valid_local_request(): self._json({"error":"Ungültiger Host"}, HTTPStatus.FORBIDDEN); return
-        parsed=urlparse(self.path)
-        if parsed.path=="/": self._send(HTML.replace("__TOKEN__",self.server.token).replace("__NONCE__",self.server.nonce).encode(),"text/html; charset=utf-8"); return
-        if parsed.path in {"/icon.png","/favicon.ico"}: self._send(ICON_PNG,"image/png"); return
-        if parsed.path=="/api/status":
-            if not self._authorized(): self._json({"error":"Nicht autorisiert"},HTTPStatus.FORBIDDEN); return
-            try: after=max(0,int(parse_qs(parsed.query).get("after",["0"])[0]))
-            except ValueError: after=0
-            self._json(self.server.controller.status(after)); return
-        self._json({"error":"Nicht gefunden"},HTTPStatus.NOT_FOUND)
+        if not self._valid_local_request():
+            self._json({"error": "Ungültiger Host"}, HTTPStatus.FORBIDDEN)
+            return
+
+        parsed = urlparse(self.path)
+        if parsed.path == "/":
+            body = HTML.replace("__TOKEN__", self.server.token).replace("__NONCE__", self.server.nonce)
+            self._send(body.encode(), "text/html; charset=utf-8")
+            return
+        if parsed.path in {"/icon.png", "/favicon.ico"}:
+            self._send(ICON_PNG, "image/png")
+            return
+        if parsed.path == "/api/status":
+            if not self._authorized():
+                self._json({"error": "Nicht autorisiert"}, HTTPStatus.FORBIDDEN)
+                return
+            try:
+                after = max(0, int(parse_qs(parsed.query).get("after", ["0"])[0]))
+            except ValueError:
+                after = 0
+            self._json(self.server.controller.status(after))
+            return
+        self._json({"error": "Nicht gefunden"}, HTTPStatus.NOT_FOUND)
+
     def do_POST(self) -> None:
-        if not self._authorized(): self._json({"error":"Aktion nicht autorisiert"},HTTPStatus.FORBIDDEN); return
-        origin=self.headers.get("Origin"); expected=f"http://127.0.0.1:{self.server.server_port}"
-        if origin and origin not in {expected,f"http://localhost:{self.server.server_port}"}: self._json({"error":"Ungültiger Ursprung"},HTTPStatus.FORBIDDEN); return
-        try: length=int(self.headers.get("Content-Length","0"))
-        except ValueError: length=MAX_REQUEST+1
-        if not 0<=length<=MAX_REQUEST: self._json({"error":"Anfrage ist zu groß"},HTTPStatus.REQUEST_ENTITY_TOO_LARGE); return
+        if not self._authorized():
+            self._json({"error": "Aktion nicht autorisiert"}, HTTPStatus.FORBIDDEN)
+            return
+
+        origin = self.headers.get("Origin")
+        expected = f"http://127.0.0.1:{self.server.server_port}"
+        if origin and origin not in {expected, f"http://localhost:{self.server.server_port}"}:
+            self._json({"error": "Ungültiger Ursprung"}, HTTPStatus.FORBIDDEN)
+            return
+
         try:
-            body=json.loads(self.rfile.read(length) or b"{}")
-            if not isinstance(body,dict): raise ValueError
-            result=self._route(urlparse(self.path).path,body); self._json({"ok":True,**result})
-        except (json.JSONDecodeError,ValueError): self._json({"error":"Ungültige Anfrage"},HTTPStatus.BAD_REQUEST)
-        except (ConfigError,TorError,RuntimeError) as exc: self._json({"error":str(exc)},HTTPStatus.BAD_REQUEST)
-    def _route(self,path:str,body:dict)->dict[str,object]:
-        c=self.server.controller
-        if path=="/api/listen": c.start_listen(str(body.get("peer","default")),bool(body.get("temporary",False)))
-        elif path=="/api/call": c.start_call(str(body.get("address","")),str(body.get("peer","default")))
-        elif path=="/api/disconnect": c.disconnect()
-        elif path=="/api/message": c.send_text(str(body.get("text","")))
-        elif path=="/api/audio": c.send_audio(int(body.get("seconds",5)))
-        elif path=="/api/audio/test": c.test_audio()
-        elif path=="/api/secret/show": return {"secret":c.show_secret(str(body.get("peer","default")))}
-        elif path=="/api/secret/import": c.set_secret(str(body.get("peer","default")),str(body.get("secret","")))
-        elif path=="/api/shutdown": c.shutdown(); threading.Thread(target=self.server.shutdown,daemon=True).start()
-        else: raise ValueError("Unbekannte Aktion")
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = MAX_REQUEST + 1
+        if not 0 <= length <= MAX_REQUEST:
+            self._json({"error": "Anfrage ist zu groß"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            return
+
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}")
+            if not isinstance(body, dict):
+                raise ValueError
+            result = self._route(urlparse(self.path).path, body)
+            self._json({"ok": True, **result})
+        except (json.JSONDecodeError, ValueError):
+            self._json({"error": "Ungültige Anfrage"}, HTTPStatus.BAD_REQUEST)
+        except (ConfigError, TorError, RuntimeError) as exc:
+            self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+
+    def _route(self, path: str, body: dict) -> dict[str, object]:
+        controller = self.server.controller
+        if path == "/api/listen":
+            controller.start_listen(
+                str(body.get("peer", "default")),
+                bool(body.get("temporary", False)),
+            )
+        elif path == "/api/call":
+            controller.start_call(
+                str(body.get("address", "")),
+                str(body.get("peer", "default")),
+            )
+        elif path == "/api/disconnect":
+            controller.disconnect()
+        elif path == "/api/message":
+            controller.send_text(str(body.get("text", "")))
+        elif path == "/api/audio":
+            controller.send_audio(int(body.get("seconds", 5)))
+        elif path == "/api/audio/test":
+            controller.test_audio()
+        elif path == "/api/secret/show":
+            return {"secret": controller.show_secret(str(body.get("peer", "default")))}
+        elif path == "/api/secret/import":
+            controller.set_secret(
+                str(body.get("peer", "default")),
+                str(body.get("secret", "")),
+            )
+        elif path == "/api/shutdown":
+            controller.shutdown()
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+        else:
+            raise ValueError("Unbekannte Aktion")
         return {}
 
 
 def create_server(port: int = 0, controller: GuiController | None = None) -> OnionHTTPServer:
-    if not 0 <= port <= 65535: raise ValueError("Ungültiger GUI-Port")
+    if not 0 <= port <= 65535:
+        raise ValueError("Ungültiger GUI-Port")
     return OnionHTTPServer(("127.0.0.1", port), controller or GuiController())
 
 
 def run_gui(port: int = 0, *, open_browser: bool = True) -> int:
-    server=create_server(port); url=f"http://127.0.0.1:{server.server_port}/"
+    server = create_server(port)
+    url = f"http://127.0.0.1:{server.server_port}/"
     print(f"BRZ – OnionCall GUI: {url}")
-    if open_browser: threading.Timer(0.35, lambda: webbrowser.open(url)).start()
-    try: server.serve_forever()
-    except KeyboardInterrupt: pass
-    finally: server.controller.disconnect(); server.server_close()
+    if open_browser:
+        threading.Timer(0.35, lambda: webbrowser.open(url)).start()
+    try:
+        with suppress(KeyboardInterrupt):
+            server.serve_forever()
+    finally:
+        server.controller.disconnect()
+        server.server_close()
     return 0

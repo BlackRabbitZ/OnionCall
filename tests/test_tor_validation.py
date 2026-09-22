@@ -6,6 +6,7 @@ import unittest
 
 from onioncall.tor import TorError, validate_loopback_host, validate_onion
 
+
 def valid_onion() -> str:
     public = bytes(range(32))
     version = b"\x03"
