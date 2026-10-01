@@ -22,7 +22,7 @@ classifiers = [
   "Topic :: Communications :: Chat",
   "Topic :: Security :: Cryptography",
 ]
-dependencies = ["cryptography==50.0.1", "prompt-toolkit==3.0.53", "wcwidth==0.8.4"]
+dependencies = ["cryptography==50.0.1", "prompt-toolkit==3.0.53", "wcwidth==0.9.1"]
 
 [project.optional-dependencies]
 dev = ["build==1.6.1", "ruff==0.16.8"]
